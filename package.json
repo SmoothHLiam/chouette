@@ -1,0 +1,12 @@
+{
+  "name": "chouette",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Chouette ! — an arcade of French mini-games for students from French 1 through AP French.",
+  "scripts": {
+    "start": "node tools/serve.js",
+    "test": "node tests/run.js"
+  },
+  "keywords": ["french", "education", "game", "vocabulary", "conjugation", "ap-french"],
+  "license": "MIT"
+}
