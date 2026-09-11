@@ -69,6 +69,20 @@
       wrap.appendChild(st);
     }
 
+    if (s.assignments && s.assignments.length) {
+      var ab = U.el("div", "results-quests");
+      ab.appendChild(U.el("h3", null,
+        "Devoir" + (s.assignments.length > 1 ? "s rendus" : " rendu") + " !"));
+      s.assignments.forEach(function (a) {
+        var row = U.el("div", "quest done");
+        row.appendChild(U.el("span", "quest-icon", "🎒"));
+        row.appendChild(U.el("div", "quest-mid", App.School.describe(a)));
+        row.appendChild(U.el("span", "quest-prize", "🥐 " + App.School.REWARD.coins));
+        ab.appendChild(row);
+      });
+      wrap.appendChild(ab);
+    }
+
     if (s.quests && s.quests.length) {
       var qb = U.el("div", "results-quests");
       qb.appendChild(U.el("h3", null, "Mission" + (s.quests.length > 1 ? "s" : "") + " accomplie" + (s.quests.length > 1 ? "s" : "") + " !"));
@@ -109,6 +123,15 @@
     wrap.appendChild(actions);
 
     host.appendChild(wrap);
+
+    if (s.assignments && s.assignments.length) {
+      setTimeout(function () { App.FX.rain(80); App.Sound.levelUp(); }, 300);
+      s.assignments.forEach(function (a, i) {
+        setTimeout(function () {
+          App.UI.toast("Devoir rendu : " + App.School.describe(a), "🎒", "good");
+        }, 400 + i * 700);
+      });
+    }
 
     if (s.accuracy >= 80 || s.bossBeaten) {
       setTimeout(function () { App.FX.rain(70); App.Sound.win(); }, 220);

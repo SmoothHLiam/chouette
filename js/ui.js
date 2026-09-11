@@ -81,10 +81,15 @@
     var bar = U.el("header", "topbar");
 
     var who = U.el("button", "who");
-    who.appendChild(U.el("span", "who-avatar", p.avatar));
+    var face = U.el("span", "who-avatar", p.avatar);
+    if (p.role === "teacher") face.classList.add("is-teacher");
+    who.appendChild(face);
     var whoText = U.el("span", "who-text");
     whoText.appendChild(U.el("strong", null, rank.icon + " " + rank.name));
-    whoText.appendChild(U.el("small", null, App.LEVELS[(p.level || 1) - 1].label));
+    // The class name already tells you the year; showing both just repeats it.
+    var klass = p.classCode && App.School ? App.School.get(p.classCode) : null;
+    whoText.appendChild(U.el("small", null,
+      klass ? klass.name : App.LEVELS[(p.level || 1) - 1].label));
     who.appendChild(whoText);
     who.addEventListener("click", function () { App.Sound.click(); App.Router.go("profile"); });
 
@@ -127,6 +132,31 @@
     return box;
   }
 
+  /** Best-effort clipboard copy — falls back to selecting the text for file://
+   *  pages and older browsers, where the async clipboard API is unavailable. */
+  function copy(text, label) {
+    function done() { App.UI.toast((label || "Copié") + " ✓", "📋", "good"); }
+    function manual() {
+      var ta = document.createElement("textarea");
+      ta.value = text;
+      ta.setAttribute("readonly", "readonly");
+      ta.style.position = "fixed";
+      ta.style.top = "-1000px";
+      document.body.appendChild(ta);
+      ta.select();
+      var ok = false;
+      try { ok = document.execCommand("copy"); } catch (e) { ok = false; }
+      ta.remove();
+      if (ok) done();
+      else App.UI.toast("Copie impossible — sélectionne le code à la main.", "📋");
+    }
+    if (global.navigator && global.navigator.clipboard && global.navigator.clipboard.writeText) {
+      global.navigator.clipboard.writeText(text).then(done, manual);
+      return;
+    }
+    manual();
+  }
+
   function applyTheme(id) {
     document.documentElement.setAttribute("data-theme", id || "nuit");
   }
@@ -138,6 +168,7 @@
     modal: modal,
     topBar: topBar,
     progressRing: progressRing,
+    copy: copy,
     applyTheme: applyTheme
   };
 })(typeof window !== "undefined" ? window : globalThis);

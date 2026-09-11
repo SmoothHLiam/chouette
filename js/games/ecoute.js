@@ -42,7 +42,9 @@
         big.setAttribute("aria-label", "Rejouer l'audio");
         big.addEventListener("click", function () { speak(text); });
         box.appendChild(big);
-        box.appendChild(U.el("small", null, voiced() ? "Touche pour réécouter" : text));
+        box.appendChild(U.el("small", null, voiced()
+          ? "Touche pour réécouter"
+          : "Pas de voix française ici — lis le texte ci-dessus."));
         return box;
       }
 

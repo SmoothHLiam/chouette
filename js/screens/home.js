@@ -28,6 +28,17 @@
     hello.appendChild(helloText);
     wrap.appendChild(hello);
 
+    /* ------------------------------------------------------ les devoirs -- */
+    if (p.role === "teacher") {
+      var dash = U.el("button", "wide-card teacher-card");
+      dash.innerHTML = '<span class="wide-icon">🎓</span><span class="wide-body">' +
+        "<strong>Tableau de bord</strong><small>Ta classe, ton code et tes devoirs.</small></span>";
+      dash.addEventListener("click", function () { App.Sound.click(); App.Router.go("teacher"); });
+      wrap.appendChild(dash);
+    } else {
+      wrap.appendChild(homeworkSection());
+    }
+
     /* ------------------------------------------------------ the missions -- */
     var quests = App.Quests.today();
     var qBox = U.el("section", "quests");
@@ -122,6 +133,70 @@
     wrap.appendChild(actions);
 
     host.appendChild(wrap);
+
+    /** Homework comes before the daily missions: it is the one thing that is
+     *  actually owed to somebody. */
+    function homeworkSection() {
+      var status = App.School.statusFor(p);
+      if (!status) {
+        var join = U.el("button", "wide-card join-card");
+        join.innerHTML = '<span class="wide-icon">🎒</span><span class="wide-body">' +
+          "<strong>Rejoindre une classe</strong><small>Un code de ton professeur et ses devoirs arrivent ici.</small></span>";
+        join.addEventListener("click", function () {
+          App.Sound.click();
+          App.Router.go("classcode");
+        });
+        return join;
+      }
+
+      var box = U.el("section", "homework");
+      var head = U.el("div", "section-head");
+      head.appendChild(U.el("h3", null, "Devoirs · " + status.klass.name));
+      head.appendChild(U.el("span", "section-note", status.done + " / " + status.total + " rendus"));
+      box.appendChild(head);
+
+      if (!status.total) {
+        box.appendChild(U.el("p", "page-sub",
+          "Ton professeur n'a pas encore donné de devoir. Profites-en pour jouer."));
+        return box;
+      }
+
+      status.klass.assignments.forEach(function (a) {
+        var rec = p.assignments[App.School.progressKey(status.klass.code, a.id)];
+        var done = !!(rec && rec.done);
+        var game = App.Games.get(a.gameId);
+        var row = U.el("button", "assign-row assign-play" + (done ? " done" : ""));
+        row.appendChild(U.el("span", "assign-icon", done ? "✅" : (game ? game.icon : "🎯")));
+        var mid = U.el("div", "assign-mid");
+        mid.appendChild(U.el("strong", null, App.School.describe(a)));
+        var meta = [];
+        var due = App.School.dueLabel(a);
+        if (due) meta.push("📅 " + due);
+        if (a.note) meta.push("💬 " + a.note);
+        if (done) meta.push("rendu ✓");
+        else meta.push("🥐 " + App.School.REWARD.coins + " + " + App.School.REWARD.xp + " XP");
+        mid.appendChild(U.el("small", null, meta.join("  ·  ")));
+        row.appendChild(mid);
+        if (!done) row.appendChild(U.el("span", "assign-go", "▶"));
+        row.addEventListener("click", function () {
+          if (done) { App.UI.toast("Déjà rendu — mais tu peux rejouer !", "✅"); }
+          App.Sound.click();
+          if (a.gameId === "any") {
+            App.UI.toast("Choisis le jeu que tu veux dans la salle de jeux.", "🕹️");
+            return;
+          }
+          App.Router.go("play", { id: a.gameId });
+        });
+        box.appendChild(row);
+      });
+
+      var overdue = status.klass.assignments.some(function (a) {
+        var rec = p.assignments[App.School.progressKey(status.klass.code, a.id)];
+        return (!rec || !rec.done) && a.due && U.daysBetween(U.today(), a.due) < 0;
+      });
+      if (overdue) box.classList.add("has-late");
+      return box;
+    }
 
     if (params && params.greet) {
       App.UI.toast("Niveau réglé sur " + App.LEVELS[level - 1].label + " !", "🎉", "good");

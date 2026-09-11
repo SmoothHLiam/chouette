@@ -19,6 +19,58 @@
     card.appendChild(meta);
     wrap.appendChild(card);
 
+    /* ------------------------------------------------------- ma classe -- */
+    if (p.role === "student") {
+      var status = App.School.statusFor(p);
+      var classBox = U.el("section", "class-card");
+      if (status) {
+        var ch = U.el("div", "class-head");
+        var ct = U.el("div", null);
+        ct.appendChild(U.el("h3", null, status.klass.name));
+        ct.appendChild(U.el("small", null,
+          (status.klass.teacher ? status.klass.teacher + " · " : "") +
+          status.done + " / " + status.total + " devoirs rendus"));
+        ch.appendChild(ct);
+        classBox.appendChild(ch);
+
+        var codeBox = U.el("div", "code-box");
+        codeBox.appendChild(U.el("small", null, "Code de la classe"));
+        codeBox.appendChild(U.el("strong", "code-value", App.School.pretty(status.klass.code)));
+        classBox.appendChild(codeBox);
+
+        var ca = U.el("div", "class-actions");
+        ca.appendChild(App.UI.bigButton("Envoyer mes résultats", {
+          icon: "📤",
+          onClick: function () {
+            var code = App.School.progressCode(p);
+            if (!code) { App.UI.toast("Rien à envoyer pour l'instant.", "🤷"); return; }
+            App.UI.copy(code, "Code de résultats copié");
+          }
+        }));
+        ca.appendChild(App.UI.bigButton("Quitter la classe", {
+          variant: "ghost",
+          onClick: function () {
+            App.State.setClass(null);
+            App.UI.toast("Tu as quitté la classe.", "👋");
+            App.Router.go("profile");
+          }
+        }));
+        classBox.appendChild(ca);
+        classBox.appendChild(U.el("p", "class-hint",
+          "Colle ce code de résultats dans un message à ton professeur : il verra " +
+          "tes devoirs rendus même si vous n'êtes pas sur le même appareil."));
+      } else {
+        classBox.appendChild(U.el("h3", null, "Aucune classe"));
+        classBox.appendChild(U.el("p", "class-hint",
+          "Ton professeur t'a donné un code ? Ajoute-le pour recevoir ses devoirs."));
+        classBox.appendChild(App.UI.bigButton("Rejoindre une classe", {
+          icon: "🎒",
+          onClick: function () { App.Router.go("classcode", { fromProfile: true }); }
+        }));
+      }
+      wrap.appendChild(classBox);
+    }
+
     /* ---------------------------------------------------------- numbers -- */
     var acc = p.stats.answered ? Math.round((p.stats.correct / p.stats.answered) * 100) : 0;
     var grid = U.el("div", "stat-grid");
@@ -83,8 +135,9 @@
     settings.appendChild(toggle("🗣️ Voix française", p.voice !== false, function (on) {
       p.voice = on;
       App.State.save();
-      if (on) App.Speech.say("Bonjour !");
+      if (on) App.Speech.say("Bonjour ! Je parle français.");
     }));
+    settings.appendChild(voiceRow());
 
     var levelRow = U.el("div", "setting-row");
     levelRow.appendChild(U.el("span", null, "🎓 Niveau de français"));
@@ -95,6 +148,17 @@
     });
     levelRow.appendChild(levelBtn);
     settings.appendChild(levelRow);
+
+    var accountRow = U.el("div", "setting-row");
+    accountRow.appendChild(U.el("span", null, "🙋 Compte"));
+    var switchBtn = U.el("button", "linkish", (p.name || "Moi") + " — changer de compte");
+    switchBtn.addEventListener("click", function () {
+      App.Sound.click();
+      App.Accounts.signOut();
+      App.Router.go("role");
+    });
+    accountRow.appendChild(switchBtn);
+    settings.appendChild(accountRow);
 
     var resetRow = U.el("div", "setting-row");
     resetRow.appendChild(U.el("span", null, "🧹 Repartir de zéro"));
@@ -123,6 +187,37 @@
     wrap.appendChild(settings);
 
     host.appendChild(wrap);
+
+    /* Which French voice reads the words. Voices arrive asynchronously, so the
+     * row rebuilds itself once the browser has published its list. */
+    function voiceRow() {
+      var row = U.el("div", "setting-row voice-row");
+      function render() {
+        U.clear(row);
+        row.appendChild(U.el("span", null, "🔈 Voix"));
+        var voices = App.Speech.voices();
+        if (!voices.length) {
+          var warn = U.el("small", "voice-missing", App.Speech.describe());
+          row.appendChild(warn);
+          return;
+        }
+        var select = U.el("select", "voice-select");
+        voices.forEach(function (v) {
+          var opt = U.el("option", null, v.name + " · " + v.lang);
+          opt.value = v.voiceURI;
+          if (App.Speech.current() && App.Speech.current().voiceURI === v.voiceURI) opt.selected = true;
+          select.appendChild(opt);
+        });
+        select.addEventListener("change", function () {
+          App.Speech.setVoice(select.value);
+          App.Speech.say("Bonjour ! Je parle français.");
+        });
+        row.appendChild(select);
+      }
+      render();
+      App.Speech.onReady(render);
+      return row;
+    }
 
     function toggle(label, value, onChange) {
       var row = U.el("div", "setting-row");

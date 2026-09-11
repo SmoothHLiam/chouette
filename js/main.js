@@ -10,6 +10,12 @@
   function boot() {
     var root = document.getElementById("app");
     App.Router.mount(root);
+
+    // Who is signed in decides which profile the whole app reads from.
+    App.Accounts.boot();
+    var account = App.Accounts.active();
+    if (account) App.State.use(account);
+
     App.UI.applyTheme(App.State.profile.theme);
     App.Speech.warm();
 
@@ -24,8 +30,8 @@
 
     App.Quests.ensureToday();
 
-    // The level question is always the first thing a new player sees.
-    App.Router.go(App.State.profile.level ? "home" : "level");
+    // Role first, then the level question, then the game.
+    App.Router.go(account ? App.afterSignIn() : "role");
 
     var splash = document.getElementById("splash");
     if (splash) splash.classList.add("gone");

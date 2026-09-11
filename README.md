@@ -3,11 +3,15 @@
 **Le français, mais en jeu.** An arcade of French mini-games for students from
 **French 1 through AP French** — built to be played on purpose, not out of duty.
 
-The app opens with one question: **"What French level are you?"** Pick French 1,
-2, 3, 4 or French 5 (AP French), and every word, tense, boss and grammar
-question in the game retunes itself to that level.
+The app opens by asking **"Are you a student or a teacher?"**, then
+**"What French level are you?"** — French 1, 2, 3, 4 or French 5 (AP French).
+That second answer retunes every word, tense, boss and grammar question in the
+game.
 
-No build step, no dependencies, no account, no network. Open the file and play.
+Teachers get a class code and can turn the mini-games into assignments.
+Students enter the code once and their homework shows up inside the game.
+
+No build step, no dependencies, no server, no network. Open the file and play.
 
 ---
 
@@ -35,6 +39,62 @@ npm test
 
 ---
 
+## Signing in
+
+Sign-in is **local and password-free on purpose**: the people using this are
+often minors, and nothing here needs an email address.
+
+* An account is a name, a role and a private profile. Several accounts can live
+  on the same browser, so a shared classroom computer keeps everyone's XP,
+  streaks and homework apart.
+* The role question is first, and returning players get a one-tap "Déjà venu ?"
+  row to jump straight back in.
+* Switch accounts any time from **Profil → Compte**.
+
+Nothing is uploaded. Everything lives in `localStorage` on that one device.
+
+---
+
+## For teachers
+
+**Profil → Teacher** gives you a dashboard: a class, a code, assignments and a
+roster.
+
+1. **Create a class.** You get a six-character code — `ZBK-S9U` — drawn from an
+   alphabet with no `0/O` or `1/I/L`, because it gets read aloud and copied off
+   a whiteboard.
+2. **Set assignments.** Pick a mini-game and a goal:
+
+   | Goal | Example |
+   | --- | --- |
+   | Terminer une partie | any completed game |
+   | Bonnes réponses | *Éclair Rapide — 20 bonnes réponses* |
+   | Score à atteindre | *Duel Le / La — 600 points* |
+   | Précision minimum | *80 % de précision* (ignores 2-answer flukes) |
+   | Combo à atteindre | *un combo de 10* |
+   | Battre le boss | *Le Défi du Boss* |
+
+   Add a due date and a note if you want. The game checks the goal itself when a
+   student finishes a round — nothing to mark, and it only ever pays out once.
+3. **Watch the roster.** Students on the same device appear automatically.
+
+### Getting a class onto other devices
+
+There is no server, so a class travels as a code:
+
+* **The short code** (`ZBK-S9U`) works for students on the same computer.
+* **The invite code** (`CHOU1.…`) carries the whole class — name, level and
+  every assignment — so a student on any other device can join by pasting it.
+  Copy it from the dashboard and send it however you already talk to your class.
+* **Progress codes** (`CHOUP1.…`) go the other way: a student copies one from
+  their profile, you paste it into **Élèves → Coller des résultats**, and their
+  finished work lands in your roster.
+
+Both directions are plain UTF-8 JSON in base64, so accented class names survive
+the trip.
+
+---
+
 ## The loop
 
 Progress is the point, so the game keeps score in five different ways:
@@ -46,6 +106,7 @@ Progress is the point, so the game keeps score in five different ways:
 | **Streak 🔥** | One game a day keeps it alive. Miss a day and it resets. |
 | **Missions du jour** | Three daily quests, rerolled each morning, paid out instantly. |
 | **Badges** | 18 achievements — perfect games, 20× combos, night owls, boss hunters. |
+| **Devoirs** | Assignments from your teacher, worth 75 🥐 and 100 XP each. |
 
 Every correct answer builds a **combo**; every five steps of combo bumps the
 point multiplier, up to 4×. Wrong answers reset it. That single mechanic is what
@@ -114,7 +175,10 @@ Nothing is hard-coded per form. `js/data/verbs.js` holds a small rule engine:
 
 `npm test` checks 45 full conjugation tables against standard references and
 asserts that no verb in the bank produces an empty or malformed form in any
-tense — 10 000+ assertions in total.
+tense. It also covers the classroom layer: code formatting and collisions, every
+assignment goal against passing and failing sessions, invite/progress codes
+round-tripping accented names, and the rule that finishing homework pays exactly
+once — 10 400+ assertions in total.
 
 ---
 
@@ -128,12 +192,15 @@ css/
   games.css             the arcade frame and each mini-game
 js/
   core.js               helpers, class levels, ranks, themes, avatars
-  state.js              profile: XP, streak, mastery, unlocks (localStorage)
+  state.js              profile: XP, streak, mastery, unlocks, homework
+  accounts.js           who is signed in; one profile per account
   shell.js              the frame every game runs in: timer, lives, combo, XP
   router.js  ui.js  audio.js  speech.js  fx.js
-  data/                 vocab · verbs · sentences · grammar · quests · achievements
+  data/                 vocab · verbs · sentences · grammar · quests ·
+                        achievements · classroom (codes, assignments, rosters)
   games/                one file per mini-game
-  screens/              level · home · results · shop · badges · profile
+  screens/              role · signin · level · classcode · home · teacher ·
+                        results · shop · badges · profile
 tests/run.js            content + conjugation test suite
 tools/serve.js          dependency-free static server for `npm start`
 ```
@@ -173,13 +240,18 @@ that won't conjugate.
 
 ## Details worth knowing
 
-* **Everything is local.** Progress lives in `localStorage` on that one device.
-  Nothing is uploaded, and there is no account to make. If storage is blocked
-  (private windows), the game still runs — it just forgets at the end.
+* **Everything is local.** Profiles, classes and homework live in
+  `localStorage` on that device. Nothing is uploaded and no password is ever
+  asked for. If storage is blocked (private windows), the game still runs — it
+  just forgets at the end.
 * **Sound is synthesised** with the Web Audio API, so the repo ships no audio
   files. It can be switched off in the profile.
-* **Speech** uses the browser's own French voice. Devices without one fall back
-  to reading the text, and the listening game says so instead of breaking.
+* **Speech is French or silent.** The app picks the best French voice on the
+  device (metropolitan French first, then fr-CA/fr-BE/fr-CH) and will *never*
+  read French through an English voice — a default voice saying "Je m'appelle"
+  in English teaches the wrong sounds. With no French voice installed it stays
+  quiet, says why, and shows the text instead. Pick a specific voice in
+  **Profil → Voix**.
 * **Accessibility:** every game is keyboard-playable (`1`–`4` pick answers, `←`
   and `→` fight the gender duel, `Enter` submits), focus rings are visible, and
   `prefers-reduced-motion` turns the animations off.

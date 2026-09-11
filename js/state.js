@@ -1,33 +1,41 @@
-/* Chouette ! — the player's profile: XP, streak, mastery, quests, unlocks.
- * Everything lives in localStorage; if that is unavailable (private windows,
- * some file:// setups) the game still runs, it just forgets between sessions. */
+/* Chouette ! — the signed-in player's profile: XP, streak, mastery, quests,
+ * unlocks and assignment progress.
+ *
+ * Each account keeps its own profile under its own storage key, so a shared
+ * classroom computer can hold a whole class without anyone mixing up scores.
+ * If localStorage is unavailable (private windows, some file:// setups) the
+ * game still runs — it just forgets when the tab closes. */
 (function (global) {
   "use strict";
   var App = (global.App = global.App || {});
   var U = App.U;
-  var KEY = "chouette.profile.v1";
 
-  var memoryFallback = null;
+  var LEGACY_KEY = "chouette.profile.v1";
+  var memory = {};
+  var storageKey = LEGACY_KEY;
 
-  function read() {
+  function read(key) {
     try {
-      var raw = global.localStorage.getItem(KEY);
+      var raw = global.localStorage.getItem(key);
       return raw ? JSON.parse(raw) : null;
     } catch (e) {
-      return memoryFallback;
+      return memory[key] || null;
     }
   }
 
-  function write(profile) {
-    memoryFallback = profile;
+  function write(key, value) {
+    memory[key] = value;
     try {
-      global.localStorage.setItem(KEY, JSON.stringify(profile));
-    } catch (e) { /* storage blocked — memory only for this session */ }
+      global.localStorage.setItem(key, JSON.stringify(value));
+    } catch (e) { /* storage blocked — this session only */ }
   }
 
   function blank() {
     return {
-      v: 1,
+      v: 2,
+      role: "student",
+      name: "",
+      classCode: null,
       level: null,
       xp: 0,
       coins: 0,
@@ -38,28 +46,43 @@
       theme: "nuit",
       sound: true,
       voice: true,
+      voiceURI: null,
       stats: { answered: 0, correct: 0, sessions: 0, bestCombo: 0, bosses: 0 },
       games: {},        // id -> { plays, best, correct }
       mastery: {},      // french word -> { r, w, last }
       achievements: {}, // id -> ISO date
+      assignments: {},  // "CODE:assignmentId" -> { done, at, score }
       unlocked: { themes: ["nuit"], avatars: ["🦉"] },
       quests: null
     };
   }
 
-  var profile = read() || blank();
-  // Guard against half-written or older profiles.
-  var fresh = blank();
-  Object.keys(fresh).forEach(function (k) {
-    if (profile[k] === undefined || profile[k] === null && fresh[k] !== null) {
-      if (k !== "level" && k !== "lastPlayed" && k !== "quests") profile[k] = fresh[k];
-    }
-  });
+  /** Fills in anything a older or half-written profile is missing. */
+  function hydrate(saved) {
+    var fresh = blank();
+    if (!saved) return fresh;
+    Object.keys(fresh).forEach(function (k) {
+      if (saved[k] === undefined || saved[k] === null) {
+        // These three are meaningful when null — do not overwrite them.
+        if (k === "level" || k === "lastPlayed" || k === "quests" ||
+            k === "classCode" || k === "voiceURI") {
+          if (saved[k] === undefined) saved[k] = fresh[k];
+          return;
+        }
+        saved[k] = fresh[k];
+      }
+    });
+    if (!saved.stats) saved.stats = fresh.stats;
+    if (!saved.unlocked) saved.unlocked = fresh.unlocked;
+    if (!saved.assignments) saved.assignments = {};
+    return saved;
+  }
 
+  var profile = hydrate(read(LEGACY_KEY));
   var listeners = [];
 
   function save() {
-    write(profile);
+    write(storageKey, profile);
     listeners.forEach(function (fn) { fn(profile); });
   }
 
@@ -69,29 +92,21 @@
     var before = App.rankIndex(profile.xp);
     profile.xp += amount;
     var after = App.rankIndex(profile.xp);
-    return after > before ? App.RANKS[after] : null; // returns the new rank on promotion
+    return after > before ? App.RANKS[after] : null; // the new rank, on promotion
   }
 
-  function addCoins(amount) {
-    profile.coins += amount;
-  }
-
-  /** Called once per finished game: rolls the daily streak forward. */
   function touchStreak() {
     var t = U.today();
     if (profile.lastPlayed === t) return { changed: false, streak: profile.streak };
     var gap = U.daysBetween(profile.lastPlayed, t);
-    if (gap === 1) profile.streak += 1;
-    else profile.streak = 1;
+    profile.streak = gap === 1 ? profile.streak + 1 : 1;
     profile.lastPlayed = t;
     if (profile.streak > profile.bestStreak) profile.bestStreak = profile.streak;
     return { changed: true, streak: profile.streak };
   }
 
-  /** Streak is "alive" today if they played today or yesterday. */
   function streakAlive() {
-    var gap = U.daysBetween(profile.lastPlayed, U.today());
-    return gap <= 1;
+    return U.daysBetween(profile.lastPlayed, U.today()) <= 1;
   }
 
   /* ------------------------------------------------------------ mastery -- */
@@ -99,12 +114,12 @@
   function recordAnswer(key, correct) {
     if (!key) return;
     var m = profile.mastery[key] || (profile.mastery[key] = { r: 0, w: 0, last: 0 });
-    if (correct) m.r += 1; else { m.w += 1; m.last = Date.now(); }
+    if (correct) m.r += 1;
+    else { m.w += 1; m.last = Date.now(); }
     profile.stats.answered += 1;
     if (correct) profile.stats.correct += 1;
   }
 
-  /** Words that keep going wrong, worst first. */
   function weakKeys(limit) {
     var out = [];
     Object.keys(profile.mastery).forEach(function (k) {
@@ -113,10 +128,6 @@
     });
     out.sort(function (a, b) { return b.score - a.score || b.last - a.last; });
     return out.slice(0, limit || 40).map(function (o) { return o.key; });
-  }
-
-  function masteryOf(key) {
-    return profile.mastery[key] || null;
   }
 
   /* ------------------------------------------------------------- unlock -- */
@@ -136,25 +147,44 @@
 
   App.State = {
     get profile() { return profile; },
+    get key() { return storageKey; },
     save: save,
     onChange: function (fn) { listeners.push(fn); },
+
+    /** Switches to an account's profile. Called by App.Accounts on sign-in. */
+    use: function (account) {
+      storageKey = account && account.storageKey ? account.storageKey : LEGACY_KEY;
+      profile = hydrate(read(storageKey));
+      if (account) {
+        profile.name = account.name;
+        profile.role = account.role;
+      }
+      return profile;
+    },
+
+    /** Wipes the *current* account's progress, keeping the account itself. */
     reset: function () {
+      var keep = { name: profile.name, role: profile.role, classCode: profile.classCode };
       profile = blank();
+      profile.name = keep.name;
+      profile.role = keep.role;
+      profile.classCode = keep.classCode;
       save();
     },
-    setLevel: function (level) {
-      profile.level = level;
-      save();
-    },
+
+    setLevel: function (level) { profile.level = level; save(); },
+    setClass: function (code) { profile.classCode = code || null; save(); },
+
     addXP: addXP,
-    addCoins: addCoins,
+    addCoins: function (amount) { profile.coins += amount; },
     touchStreak: touchStreak,
     streakAlive: streakAlive,
     recordAnswer: recordAnswer,
     weakKeys: weakKeys,
-    masteryOf: masteryOf,
+    masteryOf: function (key) { return profile.mastery[key] || null; },
     owns: owns,
     buy: buy,
+
     noteGame: function (id, correct, score) {
       var g = profile.games[id] || (profile.games[id] = { plays: 0, best: 0, correct: 0 });
       g.plays += 1;
@@ -162,8 +192,12 @@
       if (score > g.best) g.best = score;
       return g;
     },
-    gamesPlayed: function () {
-      return Object.keys(profile.games).length;
-    }
+    gamesPlayed: function () { return Object.keys(profile.games).length; },
+
+    /* Raw access, used by the accounts module for migration and clean-up. */
+    _read: read,
+    _write: write,
+    _blank: blank,
+    _legacyKey: LEGACY_KEY
   };
 })(typeof window !== "undefined" ? window : globalThis);

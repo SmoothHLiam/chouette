@@ -250,6 +250,7 @@
       summary.promoted = promoted;
       summary.streak = streak;
       summary.quests = App.Quests.apply(summary);
+      summary.assignments = App.School.checkSession(p, summary);
       summary.badges = App.Achievements.check(summary);
       App.State.save();
 

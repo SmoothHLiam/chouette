@@ -8,6 +8,19 @@ require("../js/data/vocab.js");
 require("../js/data/verbs.js");
 require("../js/data/sentences.js");
 require("../js/data/grammar.js");
+require("../js/state.js");
+require("../js/accounts.js");
+require("../js/shell.js");
+require("../js/games/common.js");
+require("../js/games/eclair.js");
+require("../js/games/genre.js");
+require("../js/games/conjugaison.js");
+require("../js/games/accents.js");
+require("../js/games/phrase.js");
+require("../js/games/ecoute.js");
+require("../js/games/memoire.js");
+require("../js/games/boss.js");
+require("../js/data/classroom.js");
 
 var App = globalThis.App;
 var V = App.Vocab, Verbs = App.Verbs, S = App.Sentences, G = App.Grammar;
@@ -211,6 +224,120 @@ check("rank progress stays within 0..1", (function () {
 })());
 eq("five class levels are offered", App.LEVELS.length, 5);
 eq("the last one is AP", App.LEVELS[4].label, "French 5 (AP French)");
+
+/* --------------------------------------------------------- classroom -- */
+var School = App.School;
+
+/* Codes have to survive being read aloud and copied off a whiteboard. */
+var codes = [];
+for (var c = 0; c < 200; c++) codes.push(App.School.pretty(School.createClass({ name: "C" + c, level: 1 }).code));
+check("class codes are formatted XXX-XXX", codes.every(function (x) { return /^[A-Z0-9]{3}-[A-Z0-9]{3}$/.test(x); }),
+  codes.slice(0, 3).join(", "));
+check("class codes avoid look-alike characters", codes.every(function (x) { return !/[01OIL]/.test(x); }),
+  codes.filter(function (x) { return /[01OIL]/.test(x); })[0]);
+check("class codes are unique across 200 draws", new Set(codes).size >= 198, String(new Set(codes).size));
+
+eq("codes normalise", School.normalizeCode(" abc-123 "), "ABC123");
+eq("codes pretty-print", School.pretty("abc123"), "ABC-123");
+
+var klass = School.createClass({ name: "Français 3 — période 4", teacher: "Mme Dupont", level: 3 });
+check("a new class is retrievable by its own code", !!School.get(klass.code));
+check("a class is found without its dash", !!School.get(School.normalizeCode(klass.code)));
+check("a class is found in lower case", !!School.get(klass.code.toLowerCase()));
+eq("a new class starts with no assignments", klass.assignments.length, 0);
+
+var a1 = School.addAssignment(klass.code, { gameId: "eclair", goal: "correct", target: 20, note: "Chapitre 5" });
+var a2 = School.addAssignment(klass.code, { gameId: "boss", goal: "boss" });
+eq("assignments are stored", School.get(klass.code).assignments.length, 2);
+eq("an assignment describes itself", School.describe(a1), "Éclair Rapide — 20 bonnes réponses");
+eq("a boss assignment describes itself", School.describe(a2), "Le Défi du Boss — Bats le boss");
+
+/* Goal checking: the gate between "played a game" and "did the homework". */
+function session(over) {
+  var base = { gameId: "eclair", correct: 0, wrong: 0, total: 0, accuracy: 0, score: 0, bestCombo: 0, bossBeaten: false };
+  Object.keys(over || {}).forEach(function (k) { base[k] = over[k]; });
+  return base;
+}
+var G = function (goal, target, gameId) {
+  return { gameId: gameId || "eclair", goal: goal, target: target };
+};
+check("correct-count goal met", School.satisfied(G("correct", 20), session({ correct: 20, total: 20 })));
+check("correct-count goal not met", !School.satisfied(G("correct", 20), session({ correct: 19, total: 20 })));
+check("score goal met", School.satisfied(G("score", 800), session({ score: 900, total: 9 })));
+check("score goal not met", !School.satisfied(G("score", 800), session({ score: 799, total: 9 })));
+check("accuracy goal met", School.satisfied(G("accuracy", 80), session({ accuracy: 85, total: 10 })));
+check("accuracy goal ignores a 2-answer fluke",
+  !School.satisfied(G("accuracy", 80), session({ accuracy: 100, total: 2 })));
+check("combo goal met", School.satisfied(G("combo", 10), session({ bestCombo: 12, total: 20 })));
+check("boss goal needs a dead boss", School.satisfied(G("boss", 0, "boss"), session({ gameId: "boss", bossBeaten: true, total: 9 })));
+check("boss goal fails when the boss lives", !School.satisfied(G("boss", 0, "boss"), session({ gameId: "boss", total: 9 })));
+check("play goal needs at least one answer", School.satisfied(G("play", 0), session({ total: 1 })));
+check("play goal rejects an empty session", !School.satisfied(G("play", 0), session({ total: 0 })));
+check("the wrong game never counts",
+  !School.satisfied(G("correct", 5, "genre"), session({ gameId: "eclair", correct: 30, total: 30 })));
+check('"any game" counts for every game',
+  School.satisfied(G("correct", 5, "any"), session({ gameId: "memoire", correct: 9, total: 9 })));
+
+/* The invite code is the only thing that crosses devices — accents included. */
+var invite = School.shareCode(klass.code);
+check("an invite code is produced", typeof invite === "string" && invite.indexOf("CHOU1.") === 0);
+School.removeClass(klass.code);
+check("the class is gone after removal", !School.get(klass.code));
+var back = School.importShare(invite);
+check("the invite code restores the class", back.ok, back.error);
+eq("…with its accented name intact", back.klass.name, "Français 3 — période 4");
+eq("…with its teacher", back.klass.teacher, "Mme Dupont");
+eq("…with its level", back.klass.level, 3);
+eq("…with both assignments", back.klass.assignments.length, 2);
+eq("…and the same assignment ids", back.klass.assignments[0].id, a1.id);
+check("an imported class is not marked as owned", back.klass.owned === false);
+
+var joined = School.joinByCode(klass.code);
+check("a student can join with the short code", joined.ok, joined.error);
+var joinedLong = School.joinByCode(invite);
+check("a student can join with the invite code", joinedLong.ok, joinedLong.error);
+check("an unknown code is refused", !School.joinByCode("ZZZ-999").ok);
+check("garbage is refused", !School.joinByCode("hello").ok);
+check("a truncated invite code is refused politely", !School.importShare("CHOU1.not-base64!!").ok);
+check("an empty code is refused", !School.joinByCode("").ok);
+
+/* A finished game marks homework off, pays once, and never pays twice. */
+var student = App.State._blank();
+student.role = "student";
+student.name = "Camille";
+student.classCode = klass.code;
+var coinsBefore = student.coins;
+var winning = session({ gameId: "eclair", correct: 22, total: 24, accuracy: 92, score: 2400 });
+var doneNow = School.checkSession(student, winning);
+eq("the matching assignment is marked done", doneNow.length, 1);
+eq("…and it is the right one", doneNow[0].id, a1.id);
+eq("finishing homework pays croissants", student.coins, coinsBefore + School.REWARD.coins);
+eq("replaying pays nothing extra", School.checkSession(student, winning).length, 0);
+eq("…and the balance is unchanged", student.coins, coinsBefore + School.REWARD.coins);
+eq("one of two assignments is done", School.statusFor(student).done, 1);
+eq("the other one is still open", School.openFor(student).length, 1);
+
+var bossWin = session({ gameId: "boss", correct: 12, total: 14, accuracy: 86, bossBeaten: true });
+eq("the boss assignment closes on a win", School.checkSession(student, bossWin).length, 1);
+eq("both assignments are now done", School.statusFor(student).done, 2);
+eq("nothing is left open", School.openFor(student).length, 0);
+
+check("a teacher's own play never counts as homework",
+  School.checkSession({ role: "teacher", classCode: klass.code, assignments: {}, coins: 0, xp: 0 }, winning).length === 0);
+check("a student with no class has no homework",
+  School.statusFor({ role: "student", classCode: null, assignments: {} }) === null);
+
+/* Results travel back to the teacher the same way they came. */
+var report = School.progressCode(student);
+check("a progress code is produced", typeof report === "string" && report.indexOf("CHOUP1.") === 0);
+var merged = School.importProgress(report);
+check("the teacher can import it", merged.ok, merged.error);
+eq("…under the student's name", merged.student, "Camille");
+var sheet = School.roster(klass.code);
+check("the roster lists the student", sheet.length >= 1);
+eq("…with both assignments ticked", sheet[0].done, 2);
+check("a progress code from elsewhere is refused", !School.importProgress("CHOUP1.zzzz").ok);
+check("an invite code is not a progress code", !School.importProgress(invite).ok);
 
 /* ------------------------------------------------------------ report -- */
 console.log("Chouette ! — test suite");

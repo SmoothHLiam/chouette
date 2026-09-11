@@ -17,8 +17,9 @@
 
     var card = U.el("div", "level-card");
     card.appendChild(U.el("h2", "level-question", "What French level are you?"));
-    card.appendChild(U.el("p", "level-sub",
-      "Ton niveau règle le vocabulaire, les temps verbaux et les boss. Tu pourras le changer plus tard."));
+    card.appendChild(U.el("p", "level-sub", p.role === "teacher"
+      ? "Le niveau que tu enseignes : il règle le vocabulaire, les temps verbaux et les boss des devoirs que tu donneras."
+      : "Ton niveau règle le vocabulaire, les temps verbaux et les boss. Tu pourras le changer plus tard."));
 
     var select = U.el("select", "level-select");
     select.id = "level-select";
@@ -46,7 +47,9 @@
         if (!value) { select.focus(); App.UI.toast("Choisis d'abord ton niveau.", "👆"); return; }
         App.State.setLevel(value);
         App.Sound.levelUp();
-        App.Router.go("home", { greet: true });
+        if (params && params.switching) { App.Router.go(App.afterSignIn()); return; }
+        if (p.role === "teacher") { App.Router.go("teacher"); return; }
+        App.Router.go(p.classCode ? "home" : "classcode", { greet: true });
       }
     });
     go.disabled = !p.level;
@@ -72,6 +75,13 @@
     } else {
       wrap.appendChild(U.el("p", "level-foot",
         "8 mini-jeux · 5 niveaux · aucune installation. Tes progrès restent sur cet appareil."));
+      var changeRole = U.el("button", "linkish", "← Je ne suis pas " + (p.name || "ici"));
+      changeRole.addEventListener("click", function () {
+        App.Sound.click();
+        App.Accounts.signOut();
+        App.Router.go("role");
+      });
+      wrap.appendChild(changeRole);
     }
 
     host.appendChild(wrap);
