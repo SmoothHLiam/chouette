@@ -123,7 +123,8 @@
     [
       { icon: "🛍️", label: "Boutique", screen: "shop" },
       { icon: "🏅", label: "Badges", screen: "badges" },
-      { icon: "📊", label: "Profil", screen: "profile" }
+      { icon: "📊", label: "Profil", screen: "profile" },
+      { icon: "⚙️", label: "Réglages", screen: "settings" }
     ].forEach(function (a) {
       var b = U.el("button", "mini-card");
       b.appendChild(U.el("span", "mini-icon", a.icon));

@@ -2,16 +2,21 @@
 (function (global) {
   "use strict";
   var App = (global.App = global.App || {});
-  var canvas = null, ctx = null, parts = [], raf = null;
+  var canvas = null, ctx = null, parts = [], raf = null, resizeBound = false;
 
   function ensureCanvas() {
-    if (canvas) return;
+    // Checking isConnected rather than just the reference: a canvas detached
+    // from the document would otherwise leave effects silently dead forever.
+    if (canvas && canvas.isConnected) return;
     canvas = document.createElement("canvas");
     canvas.className = "fx-canvas";
     document.body.appendChild(canvas);
     ctx = canvas.getContext("2d");
     resize();
-    global.addEventListener("resize", resize);
+    if (!resizeBound) {
+      global.addEventListener("resize", resize);
+      resizeBound = true;
+    }
   }
 
   function resize() {
@@ -26,7 +31,14 @@
 
   var PALETTE = ["#4f7bff", "#ffc857", "#ff4d6d", "#2ee6a8", "#b58bff", "#ffffff"];
 
+  /* "Calmes" in the settings suppresses the decorative effects. Score pops and
+   * the shake on a wrong answer stay: those carry information, not confetti. */
+  function calm() {
+    return document.documentElement.getAttribute("data-motion") === "calm";
+  }
+
   function burst(x, y, count, power) {
+    if (calm()) return;
     ensureCanvas();
     count = count || 26;
     for (var i = 0; i < count; i++) {
@@ -77,6 +89,7 @@
     },
     burstXY: burst,
     rain: function (count) {
+      if (calm()) return;
       ensureCanvas();
       for (var i = 0; i < (count || 60); i++) {
         parts.push({
@@ -114,6 +127,7 @@
       setTimeout(function () { node.classList.remove(cls); }, 500);
     },
     flash: function (kind) {
+      if (calm()) return;
       var f = document.createElement("div");
       f.className = "fx-flash fx-flash-" + kind;
       document.body.appendChild(f);

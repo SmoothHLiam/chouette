@@ -15,6 +15,11 @@
 
     /* ----------------------------------------------------------- themes -- */
     wrap.appendChild(U.el("h3", "shop-head", "Thèmes"));
+    if (App.Skin.get("skin") !== "colorful") {
+      wrap.appendChild(U.el("p", "class-hint",
+        "Tu es en mode minimal, qui a sa propre palette claire : les thèmes " +
+        "s'appliqueront dès que tu repasseras en mode coloré (Réglages → Apparence)."));
+    }
     var themeGrid = U.el("div", "shop-grid");
     App.THEMES.forEach(function (t) {
       var owned = App.State.owns("themes", t.id);

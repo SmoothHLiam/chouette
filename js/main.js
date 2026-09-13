@@ -16,6 +16,9 @@
     var account = App.Accounts.active();
     if (account) App.State.use(account);
 
+    // The inline script in index.html already applied these before the first
+    // paint; this hands them to the rest of the app.
+    App.Skin.boot();
     App.UI.applyTheme(App.State.profile.theme);
     App.Speech.warm();
 

@@ -173,11 +173,44 @@ Progress is the point, so the game keeps score in five different ways:
 | **Missions du jour** | Three daily quests, rerolled each morning, paid out instantly. |
 | **Badges** | 18 achievements — perfect games, 20× combos, night owls, boss hunters. |
 | **Mot du jour** | One word a day on the home screen, the same one for everyone at that level, with a tap to hear it. |
+| **Two looks** | A colourful arcade skin and a quiet minimal one, swapped in **Réglages → Apparence**. |
 | **Devoirs** | Assignments from your teacher, worth 75 🥐 and 100 XP each. |
 
 Every correct answer builds a **combo**; every five steps of combo bumps the
 point multiplier, up to 4×. Wrong answers reset it. That single mechanic is what
 turns "answer 30 questions" into something worth chasing.
+
+---
+
+## Two designs, one app
+
+The game ships with two complete visual identities, chosen in
+**Réglages → Apparence**:
+
+* **Coloré** — the original arcade look: dark, saturated, confetti, and the six
+  unlockable themes from the shop.
+* **Minimal** — a quiet light product look in DM Sans and Newsreader, easier to
+  read for long stretches and far less shouty on a classroom projector.
+
+They are kept genuinely separate. `css/base.css`, `layout.css` and `games.css`
+are the colourful identity; `css/redesign.css` is the minimal one, layered on
+top and **enabled or disabled as a whole**. Switching skins toggles that single
+stylesheet rather than rewriting either design, so neither can be lost to make
+the other work, and anything added later gets its minimal styling from a
+`[data-skin="minimal"]` block in `layout.css` — `redesign.css` itself is never
+edited.
+
+Display settings (skin, text size, animations) are stored per **device** rather
+than per account: they describe the screen in front of you, they are applied by
+a small inline script before the first paint so nobody sees a flash of the wrong
+design, and on a shared classroom computer the display should not change every
+time a different student signs in.
+
+Alongside the skin, **Réglages** carries text size (normal / grand / très
+grand, which scales the whole interface), animations (complètes / calmes —
+calm mode drops confetti, flashes and screen shake for anyone who finds them
+distracting), sound, the French voice and which voice to use, the class level,
+account switching, sync status, and starting over.
 
 ---
 

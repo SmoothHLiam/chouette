@@ -484,7 +484,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 8px 12px;
+  flex-wrap: wrap;
   padding: 12px 14px;
   border-radius: 14px;
   background: var(--panel);
@@ -492,6 +493,10 @@
   font-weight: 700;
   font-size: 0.94rem;
 }
+.setting-row > span:first-child { flex: 1 1 auto; min-width: 0; }
+/* A long value — the sync address especially — gets its own line rather than
+   squeezing the label into two. */
+.setting-row .class-hint { flex: 1 1 100%; text-align: left; }
 
 @media (max-width: 520px) {
   .results-stats { grid-template-columns: repeat(2, 1fr); }
@@ -729,3 +734,109 @@
 .assign-row .icon-btn + .icon-btn,
 .record-row .icon-btn + .icon-btn { margin-left: 6px; }
 .record-row .record-best { margin-left: auto; }
+
+/* ============================================================== réglages == */
+
+.settings-page { display: flex; flex-direction: column; }
+
+.setting-block {
+  background: var(--panel);
+  border: 1px solid var(--panel-line);
+  border-radius: var(--radius);
+  padding: 14px;
+  margin-bottom: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.setting-label { font-weight: 700; font-size: 0.94rem; }
+.setting-hint { color: var(--muted); font-size: 0.82rem; line-height: 1.45; }
+
+/* A row of mutually exclusive choices. */
+.seg {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 6px;
+  padding: 4px;
+  border-radius: 14px;
+  background: rgba(0, 0, 0, 0.28);
+  border: 1px solid var(--panel-line);
+}
+.seg-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 11px 8px;
+  border: 0;
+  border-radius: 11px;
+  background: transparent;
+  color: var(--muted);
+  font: 700 0.9rem var(--font);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.seg-btn:hover { color: var(--ink); background: rgba(255, 255, 255, 0.08); }
+.seg-btn.on {
+  background: var(--accent);
+  color: var(--accent-ink);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.28);
+}
+.seg-icon { font-size: 1.05rem; }
+@media (max-width: 430px) {
+  .seg-name { font-size: 0.82rem; }
+  .seg-btn { padding: 10px 4px; }
+}
+
+/* Quick switch between themes already owned. */
+.theme-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.theme-dot {
+  display: flex;
+  width: 56px;
+  height: 30px;
+  padding: 0;
+  overflow: hidden;
+  border-radius: 8px;
+  border: 2px solid var(--panel-line);
+  cursor: pointer;
+  background: none;
+}
+.theme-dot span { flex: 1; }
+.theme-dot.active { border-color: var(--gold); box-shadow: 0 0 0 2px rgba(255, 200, 87, 0.28); }
+
+/* ---- Text size. Scales everything expressed in rem. --------------------- */
+html[data-text="large"] { font-size: 112.5%; }
+html[data-text="xlarge"] { font-size: 125%; }
+
+/* ---- Calmer animations, chosen rather than detected. -------------------- */
+html[data-motion="calm"] *,
+html[data-motion="calm"] *::before,
+html[data-motion="calm"] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.06s !important;
+}
+
+/* ---- The new controls, in the minimal identity. ------------------------- */
+/* redesign.css is left exactly as delivered, so anything added after it is
+   restyled here instead of by editing that file. */
+html[data-skin="minimal"] .seg {
+  background: #f0f2ee;
+  border-color: #dfe2dc;
+  border-radius: 10px;
+  padding: 3px;
+}
+html[data-skin="minimal"] .seg-btn { border-radius: 8px; font-weight: 600; }
+html[data-skin="minimal"] .seg-btn:hover { background: #e4e8e2; }
+html[data-skin="minimal"] .seg-btn.on { box-shadow: none; }
+html[data-skin="minimal"] .setting-block {
+  background: #fff;
+  border-color: #dfe2dc;
+  border-radius: 10px;
+}
+html[data-skin="minimal"] .theme-dot { border-radius: 6px; }
+html[data-skin="minimal"] .theme-dot.active {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(62, 91, 71, 0.18);
+}

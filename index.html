@@ -10,13 +10,32 @@
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🦉</text></svg>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
- <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,500;6..72,600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Fredoka:wght@500;600;700&family=Newsreader:opsz,wght@6..72,500;6..72,600&family=Nunito:wght@600;700;800&display=swap" rel="stylesheet">
 
   <link rel="stylesheet" href="css/base.css">
   <link rel="stylesheet" href="css/layout.css">
   <link rel="stylesheet" href="css/games.css">
-   <!-- The redesign lives in its own layer so the original Claude styles remain intact. -->
-  <link rel="stylesheet" href="css/redesign.css">
+  <!-- The redesign lives in its own layer so the original styles remain intact.
+       Switching skins enables or disables this one sheet; neither design is
+       ever edited to accommodate the other. Starts disabled so "colorful" is
+       the default, and the script below turns it on before the first paint. -->
+  <link rel="stylesheet" href="css/redesign.css" id="skin-minimal" disabled>
+  <script>
+    /* Runs during head parsing, so a saved skin is in place before anything is
+       drawn — otherwise a minimal-mode player sees a flash of the arcade look
+       on every page load. Deliberately dependency-free and fail-safe. */
+    (function () {
+      var root = document.documentElement;
+      var saved = {};
+      try { saved = JSON.parse(localStorage.getItem("chouette.display.v1") || "{}") || {}; } catch (e) { saved = {}; }
+      var skin = saved.skin === "minimal" ? "minimal" : "colorful";
+      root.setAttribute("data-skin", skin);
+      root.setAttribute("data-text", saved.text || "normal");
+      root.setAttribute("data-motion", saved.motion || "full");
+      var sheet = document.getElementById("skin-minimal");
+      if (sheet) sheet.disabled = skin !== "minimal";
+    }());
+  </script>
 </head>
 <body>
   <main id="app" role="main"></main>
@@ -30,6 +49,7 @@
   <!-- foundations -->
   <script src="js/config.js"></script>
   <script src="js/core.js"></script>
+  <script src="js/skin.js"></script>
   <script src="js/data/vocab.js"></script>
   <script src="js/data/verbs.js"></script>
   <script src="js/data/sentences.js"></script>
@@ -68,6 +88,7 @@
   <script src="js/screens/results.js"></script>
   <script src="js/screens/shop.js"></script>
   <script src="js/screens/badges.js"></script>
+  <script src="js/screens/settings.js"></script>
   <script src="js/screens/profile.js"></script>
   <script src="js/main.js"></script>
 </body>
