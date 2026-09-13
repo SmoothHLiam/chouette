@@ -4,7 +4,7 @@
  *   ""  (default)  use the same origin the app was served from. This is right
  *                  for `npm start` and for the Cloudflare Worker, which serves
  *                  the game and the API together.
- *   "https://chouette.your-name.workers.dev"
+ *   "https://chouette.chouette.workers.dev"
  *                  set this only if the game's files are hosted somewhere
  *                  other than the Worker (GitHub Pages, a school server…).
  *
