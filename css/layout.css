@@ -655,3 +655,36 @@
   font: 700 0.82rem var(--font);
 }
 .voice-missing { color: var(--bad); font-size: 0.8rem; text-align: right; flex: 1; }
+
+/* ------------------------------------------------------------ mot du jour -- */
+
+.wotd {
+  padding: 14px 16px;
+  border-radius: var(--radius-lg);
+  background: linear-gradient(135deg, rgba(255, 200, 87, 0.14), rgba(79, 123, 255, 0.12));
+  border: 1px solid var(--panel-line);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.wotd-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.wotd-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--muted);
+  font-weight: 800;
+}
+.wotd-cat {
+  font-size: 0.72rem;
+  color: var(--gold);
+  background: rgba(255, 200, 87, 0.14);
+  border: 1px solid rgba(255, 200, 87, 0.35);
+  border-radius: 999px;
+  padding: 3px 9px;
+  font-weight: 700;
+}
+.wotd-line { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.wotd-word { font: 700 clamp(1.4rem, 6vw, 1.9rem)/1.2 var(--display); }
+.wotd-en { color: var(--muted); font-size: 0.9rem; }
+.wotd-note { color: var(--gold); font-size: 0.78rem; font-style: normal; margin-top: 4px; }

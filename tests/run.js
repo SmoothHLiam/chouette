@@ -225,6 +225,35 @@ check("rank progress stays within 0..1", (function () {
 eq("five class levels are offered", App.LEVELS.length, 5);
 eq("the last one is AP", App.LEVELS[4].label, "French 5 (AP French)");
 
+/* ------------------------------------------------------- mot du jour -- */
+check("the word of the day is a real entry at that level", (function () {
+  var pool = V.upTo(3).map(function (i) { return i.fr; });
+  return pool.indexOf(V.wordOfTheDay(3, "2026-09-13").fr) !== -1;
+})());
+check("the same day and level always give the same word",
+  V.wordOfTheDay(2, "2026-09-13").fr === V.wordOfTheDay(2, "2026-09-13").fr);
+check("different days give different words over a week", (function () {
+  var seen = {};
+  ["2026-09-13", "2026-09-14", "2026-09-15", "2026-09-16", "2026-09-17"].forEach(function (d) {
+    seen[V.wordOfTheDay(4, d).fr] = 1;
+  });
+  return Object.keys(seen).length >= 4;
+})());
+check("a year of words never falls outside the level", (function () {
+  var pool = {};
+  V.upTo(5).forEach(function (i) { pool[i.fr] = 1; });
+  for (var d = 1; d <= 365; d++) {
+    var date = new Date(2026, 0, d);
+    var key = date.getFullYear() + "-" + (date.getMonth() + 1) + "-" + date.getDate();
+    var word = V.wordOfTheDay(5, key);
+    if (!word || !pool[word.fr]) return false;
+  }
+  return true;
+})());
+check("every level produces a word", [1, 2, 3, 4, 5].every(function (l) {
+  return !!V.wordOfTheDay(l, "2026-09-13");
+}));
+
 /* --------------------------------------------------------- classroom -- */
 var School = App.School;
 

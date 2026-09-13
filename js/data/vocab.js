@@ -415,8 +415,23 @@
     return item.t === "n" && VOWELS.indexOf(item.fr.charAt(0).toLowerCase()) !== -1;
   }
 
+  /* Same word for everyone on the same day, at the same level — so a class can
+   * talk about it — and a different one tomorrow. */
+  function wordOfTheDay(level, dateStr) {
+    var pool = [];
+    for (var i = 1; i <= level; i++) {
+      (VOCAB[i] || []).forEach(function (item) { pool.push(item); });
+    }
+    if (!pool.length) return null;
+    var key = (dateStr || (App.U ? App.U.today() : "")) + ":" + level;
+    var seed = 7;
+    for (var c = 0; c < key.length; c++) seed = (seed * 31 + key.charCodeAt(c)) % 100003;
+    return pool[seed % pool.length];
+  }
+
   App.Vocab = {
     byLevel: VOCAB,
+    wordOfTheDay: wordOfTheDay,
     withArticle: withArticle,
     display: display,
     elides: elides,

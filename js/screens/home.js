@@ -39,6 +39,8 @@
       wrap.appendChild(homeworkSection());
     }
 
+    wrap.appendChild(wordOfTheDay());
+
     /* ------------------------------------------------------ the missions -- */
     var quests = App.Quests.today();
     var qBox = U.el("section", "quests");
@@ -133,6 +135,31 @@
     wrap.appendChild(actions);
 
     host.appendChild(wrap);
+
+    /** One word a day, the same one for everyone at this level, so a class can
+     *  actually talk about it. */
+    function wordOfTheDay() {
+      var item = App.Vocab.wordOfTheDay(level);
+      var box = U.el("section", "wotd");
+      var head = U.el("div", "wotd-head");
+      head.appendChild(U.el("span", "wotd-label", "Mot du jour"));
+      if (item.c) head.appendChild(U.el("span", "wotd-cat", item.c));
+      box.appendChild(head);
+
+      var line = U.el("div", "wotd-line");
+      var word = U.el("strong", "wotd-word", App.Vocab.display(item));
+      line.appendChild(word);
+      line.appendChild(App.GameKit.speakButton(App.Vocab.display(item)));
+      box.appendChild(line);
+      box.appendChild(U.el("small", "wotd-en", item.en));
+
+      var seen = App.State.masteryOf(item.fr);
+      if (seen && seen.r + seen.w > 0) {
+        box.appendChild(U.el("em", "wotd-note",
+          seen.w > seen.r ? "Tu l'as déjà raté — vise-le aujourd'hui." : "Tu le connais déjà. Bravo !"));
+      }
+      return box;
+    }
 
     /** Homework comes before the daily missions: it is the one thing that is
      *  actually owed to somebody. */

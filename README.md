@@ -106,6 +106,7 @@ Progress is the point, so the game keeps score in five different ways:
 | **Streak 🔥** | One game a day keeps it alive. Miss a day and it resets. |
 | **Missions du jour** | Three daily quests, rerolled each morning, paid out instantly. |
 | **Badges** | 18 achievements — perfect games, 20× combos, night owls, boss hunters. |
+| **Mot du jour** | One word a day on the home screen, the same one for everyone at that level, with a tap to hear it. |
 | **Devoirs** | Assignments from your teacher, worth 75 🥐 and 100 XP each. |
 
 Every correct answer builds a **combo**; every five steps of combo bumps the

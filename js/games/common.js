@@ -123,7 +123,12 @@
     b.setAttribute("aria-label", "Écouter en français");
     b.addEventListener("click", function (e) {
       e.stopPropagation();
-      if (!App.Speech.say(text, opts)) App.UI.toast("Pas de voix française sur cet appareil.", "🔇");
+      if (App.Speech.say(text, opts)) return;
+      // A missing French voice explains itself inside App.Speech; the only
+      // other reason for silence is the player having muted it.
+      if (App.State.profile.voice === false) {
+        App.UI.toast("La voix est coupée dans ton profil.", "🔇");
+      }
     });
     return b;
   }
