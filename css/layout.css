@@ -709,3 +709,11 @@
   margin-right: 6px;
 }
 .sync-dot.on { background: var(--good); box-shadow: 0 0 8px var(--good); }
+.sync-endpoint {
+  display: block;
+  margin-top: 4px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.7rem;
+  color: var(--muted);
+  word-break: break-all;
+}

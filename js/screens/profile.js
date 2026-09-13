@@ -171,6 +171,11 @@
         !App.Sync.available() ? "hors ligne (fichier local) — codes d'invitation"
           : App.Sync.online ? "active" + (App.Sync.hasPending() ? " · envoi en attente" : "")
           : "serveur injoignable — les résultats repartiront plus tard"));
+      if (App.Sync.available()) {
+        var where = U.el("small", "sync-endpoint", App.Sync.endpoint() + "/api/health");
+        where.title = "Ouvre cette adresse dans le navigateur : elle doit afficher du texte commençant par {\"ok\":true";
+        syncState.appendChild(where);
+      }
     }
     showSync();
     App.Sync.probe().then(showSync);

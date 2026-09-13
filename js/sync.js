@@ -45,12 +45,29 @@
 
     return global.fetch(base() + path, opts)
       .then(function (res) {
-        return res.json().then(function (data) {
+        // Read as text first: when the API is not wired up, what comes back is
+        // a web page, and saying so is far more useful than "unreadable".
+        return res.text().then(function (raw) {
           state.online = true;
-          if (!res.ok) return { ok: false, error: (data && data.error) || ("Erreur " + res.status), status: res.status };
+          var data = null;
+          try { data = JSON.parse(raw); } catch (e) { data = null; }
+
+          if (data === null) {
+            var looksLikePage = /^\s*(<|\uFEFF<)/.test(raw);
+            return {
+              ok: false,
+              status: res.status,
+              notJson: true,
+              error: looksLikePage
+                ? "Cette adresse renvoie une page web au lieu de données : la " +
+                  "synchronisation n'est pas installée dessus (HTTP " + res.status + ")."
+                : "Réponse illisible du serveur (HTTP " + res.status + ")."
+            };
+          }
+          if (!res.ok) {
+            return { ok: false, error: data.error || ("Erreur " + res.status), status: res.status };
+          }
           return data;
-        }, function () {
-          return { ok: false, error: "Réponse illisible du serveur." };
         });
       })
       .catch(function () {

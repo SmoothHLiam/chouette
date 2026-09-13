@@ -268,6 +268,27 @@ the download folder suggests. Get the **macOS Installer (.pkg)** from
 Mac** shows either *Apple M-something* (choose **ARM64**) or *Intel* (choose
 **x64**). Run the installer, then quit and reopen Terminal.
 
+### "Cette adresse renvoie une page web au lieu de données"
+
+The app reached your address, but `/api/...` answered with a web page instead of
+data — so the Worker is not handling the API on that address. Open
+
+```
+https://your-address/api/health
+```
+
+in any browser. What you see there names the cause:
+
+| What you see | What it means | What to do |
+| --- | --- | --- |
+| `{"ok":true,"service":"chouette-sync",…}` | The API is fine | The app is talking to a *different* address. Check you opened the workers.dev URL and not a local file or an older link. |
+| The game's own page, or a 404 page | Assets are answering the API | Your `worker/wrangler.toml` is out of date. Pull the latest (`git pull`), confirm it has the `[assets]` block with `run_worker_first = ["/api/*"]`, and deploy again. |
+| A Cloudflare error page (1101, 1102…) | The Worker threw or timed out | Run `npx wrangler tail` and reload the page to see the real error. |
+| "This site can't be reached" | Nothing is deployed there | Re-run `npx wrangler deploy` and use the exact URL it prints. |
+
+The app also shows the address it is calling in **Profil → Synchronisation**,
+which is the quickest way to check this on a phone.
+
 **The class says "cet appareil seulement".**
 The app couldn't reach the API. Open `https://your-address/api/health` in a
 browser — you should see `{"ok":true,...}`. If you get an error instead, the
