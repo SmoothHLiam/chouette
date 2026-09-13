@@ -255,7 +255,10 @@
       App.State.save();
 
       // Tell the teacher's roster, if there is one. Never blocks the results.
-      if (p.role === "student" && p.classCode) App.Sync.pushProgress(p);
+      // Finished homework goes up at once; ordinary practice can wait a while.
+      if (p.role === "student" && p.classCode) {
+        App.Sync.pushProgress(p, { force: summary.assignments.length > 0 });
+      }
 
       App.Router.go("results", summary);
     }

@@ -122,6 +122,9 @@ each other.
 
 ### On Cloudflare (works from home too, free tier)
 
+**[DEPLOY.md](DEPLOY.md) walks through this from making the account onwards.**
+The short version, once you have a Cloudflare login:
+
 ```bash
 cd worker
 npx wrangler login
@@ -133,6 +136,10 @@ That single Worker serves the game *and* the API from one origin, so there is
 nothing to configure: open the URL it prints and everything works. If you host
 the game's files somewhere else instead (GitHub Pages, a school server), set
 `syncUrl` in `js/config.js` to the Worker's URL.
+
+The free plan allows 1,000 KV writes a day. Joining a class and finishing a
+piece of homework each cost one write; ordinary practice games are batched, so a
+keen student cannot spend the whole class's budget.
 
 ### What is stored, and what is not
 

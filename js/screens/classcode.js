@@ -67,7 +67,7 @@
       App.State.setClass(klass.code);
       App.School.recordRoster(klass, App.State.profile);
       // Appear on the teacher's roster straight away, before playing anything.
-      if (klass.cloud) App.Sync.pushProgress(App.State.profile);
+      if (klass.cloud) App.Sync.pushProgress(App.State.profile, { force: true });
       App.Sound.win();
       App.FX.rain(50);
       App.UI.toast("Bienvenue dans « " + klass.name + " » !", "🎒", "good");

@@ -1,22 +1,25 @@
-# Chouette ! — one deploy gives you the game and its sync API on one origin.
+# Chouette ! — one deploy puts the game and its sync API on the same origin.
 #
-#   npm install -g wrangler         (once)
-#   wrangler login                  (once)
-#   wrangler kv namespace create CHOUETTE
-#     → copy the printed id into kv_namespaces below
-#   wrangler deploy                 (from the worker/ directory)
+# Step by step, see DEPLOY.md. The short version, run from this folder:
 #
-# The app then works with no configuration: it is served from the same origin
-# as the API, so it finds /api on its own.
+#   npx wrangler login
+#   npx wrangler kv namespace create CHOUETTE
+#     → paste the printed id below, replacing PASTE_YOUR_KV_NAMESPACE_ID_HERE
+#   npx wrangler deploy
 
 name = "chouette"
 main = "index.mjs"
 compatibility_date = "2026-01-01"
 
-# The game's static files live one level up from this config.
-assets = { directory = "../", binding = "ASSETS" }
+# The game's files live one level up. Anything listed in ../.assetsignore
+# (this folder, the tests, the local dev server) is left out of the upload.
+[assets]
+directory = "../"
+binding = "ASSETS"
+# Static files answer every other path directly; /api/* always runs the Worker.
+run_worker_first = ["/api/*"]
 
-# Created by: wrangler kv namespace create CHOUETTE
+# Created by: npx wrangler kv namespace create CHOUETTE
 [[kv_namespaces]]
 binding = "CHOUETTE"
 id = "PASTE_YOUR_KV_NAMESPACE_ID_HERE"

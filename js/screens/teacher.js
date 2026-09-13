@@ -309,14 +309,29 @@
     /* ---------------------------------------------------------- the class */
     function rosterSection(k) {
       var box = U.el("section", "roster-section");
+      var list = U.el("div", "roster-list");
       var head = U.el("div", "section-head");
       head.appendChild(U.el("h3", null, "Élèves"));
+      if (k.cloud) {
+        var refresh = U.el("button", "level-chip", "↻ Actualiser");
+        refresh.title = "Les résultats peuvent mettre jusqu'à une minute à arriver.";
+        refresh.addEventListener("click", function () {
+          App.Sound.click();
+          refresh.textContent = "↻ …";
+          App.Sync.fetchRoster(k).then(function (res) {
+            refresh.textContent = "↻ Actualiser";
+            if (!res.ok) { App.UI.toast(res.error || "Serveur injoignable.", "📴"); return; }
+            renderRoster(k, list, App.School.mergeCloudRoster(k.code, res.students));
+            refreshCounts(k.code);
+          });
+        });
+        head.appendChild(refresh);
+      }
       var paste = U.el("button", "level-chip", "📥 Coller des résultats");
       paste.addEventListener("click", function () { App.Sound.click(); pasteModal(); });
       head.appendChild(paste);
       box.appendChild(head);
 
-      var list = U.el("div", "roster-list");
       box.appendChild(list);
       renderRoster(k, list, App.School.roster(k.code));
 

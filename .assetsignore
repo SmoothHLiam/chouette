@@ -1,0 +1,10 @@
+# Files that should never be published as part of the website.
+# Same format as .gitignore. Used by Cloudflare Workers when uploading assets.
+worker/
+tests/
+tools/
+node_modules/
+.git/
+.github/
+.chouette-data.json
+*.log

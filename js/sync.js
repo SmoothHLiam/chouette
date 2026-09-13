@@ -11,6 +11,11 @@
 
   var TIMEOUT = 7000;
   var PENDING_KEY = "chouette.sync.pending.v1";
+  var LAST_PUSH_KEY = "chouette.sync.lastpush.v1";
+  /* Cloudflare's free KV tier allows 1,000 writes a day. Finishing a piece of
+   * homework always writes immediately; a plain game of practice waits, so a
+   * keen student cannot burn a class's daily budget on their own. */
+  var QUIET_GAP = 10 * 60 * 1000;
   var state = { checked: false, online: false, base: null };
 
   function base() {
@@ -147,17 +152,31 @@
         "/roster?token=" + encodeURIComponent(klass.token));
     },
 
-    /** Sends where this student is up to. Queues it if the network is down. */
-    pushProgress: function (profile) {
+    /** Sends where this student is up to. Queues it if the network is down.
+     *  Pass { force: true } for anything the teacher should see at once —
+     *  joining the class, or finishing a piece of homework. */
+    pushProgress: function (profile, opts) {
+      opts = opts || {};
       var payload = App.School.progressPayload(profile);
       if (!payload) return Promise.resolve({ ok: false, error: "no class" });
       var klass = App.School.get(profile.classCode);
       if (!klass || !klass.cloud) return Promise.resolve({ ok: false, error: "local class" });
       var code = App.School.normalizeCode(profile.classCode);
+
+      var stamps = App.State._read(LAST_PUSH_KEY) || {};
+      if (!opts.force && stamps[code] && Date.now() - stamps[code] < QUIET_GAP) {
+        return Promise.resolve({ ok: true, skipped: true });
+      }
+
       return request("POST", "/api/classes/" + code + "/progress", payload)
         .then(function (res) {
-          if (res.ok) clearPending(code);
-          else markPending(code, payload);
+          if (res.ok) {
+            clearPending(code);
+            stamps[code] = Date.now();
+            App.State._write(LAST_PUSH_KEY, stamps);
+          } else {
+            markPending(code, payload);
+          }
           return res;
         });
     },
