@@ -197,6 +197,13 @@
       });
     },
 
+    /** Removes one student's row from the shared roster. */
+    removeStudent: function (klass, studentId) {
+      if (!klass || !klass.token) return Promise.resolve({ ok: false, error: "local class" });
+      return request("DELETE", "/api/classes/" + App.School.normalizeCode(klass.code) +
+        "/students/" + encodeURIComponent(studentId), { token: klass.token });
+    },
+
     fetchRoster: function (klass) {
       if (!klass || !klass.token) return Promise.resolve({ ok: false, error: "local" });
       return request("GET", "/api/classes/" + App.School.normalizeCode(klass.code) +

@@ -168,6 +168,40 @@
     return assignment;
   }
 
+  /** Changes an assignment in place, keeping its id — so students who have
+   *  already handed it in stay handed in. To make everyone redo it, delete the
+   *  assignment and post a new one. */
+  function updateAssignment(code, id, data) {
+    var klass = get(code);
+    if (!klass) return null;
+    var found = null;
+    klass.assignments = klass.assignments.map(function (a) {
+      if (a.id !== id) return a;
+      found = {
+        id: a.id,
+        gameId: data.gameId,
+        goal: goalById(data.goal).id,
+        target: Number(data.target) || 0,
+        due: data.due || null,
+        note: String(data.note || "").slice(0, 120),
+        created: a.created,
+        edited: Date.now()
+      };
+      return found;
+    });
+    if (found) put(klass);
+    return found;
+  }
+
+  /** Takes a student off the roster on this device. */
+  function removeStudent(code, key) {
+    var klass = get(code);
+    if (!klass || !klass.roster[key]) return false;
+    delete klass.roster[key];
+    put(klass);
+    return true;
+  }
+
   function removeAssignment(code, id) {
     var klass = get(code);
     if (!klass) return;
@@ -468,7 +502,9 @@
     createClass: createClass,
     removeClass: removeClass,
     addAssignment: addAssignment,
+    updateAssignment: updateAssignment,
     removeAssignment: removeAssignment,
+    removeStudent: removeStudent,
     describe: describe,
     dueLabel: dueLabel,
     satisfied: satisfied,

@@ -166,6 +166,25 @@ export async function handleApi(request, store) {
     return json({ ok: true, class: publicClass(klass), token }, 201);
   }
 
+  /* DELETE /api/classes/:code/students/:id — the teacher removes one student. */
+  const studentMatch = path.match(/^\/api\/classes\/([A-Za-z0-9-]{1,12})\/students\/([A-Za-z0-9_\-:.@+]{1,64})$/);
+  if (studentMatch) {
+    const code = normalizeCode(studentMatch[1]);
+    if (!CODE_RE.test(code)) return fail(400, "Code de classe invalide.");
+    if (method !== "DELETE") return fail(405, "Méthode non autorisée.");
+
+    const klass = await store.get("class:" + code);
+    if (!klass) return fail(404, "Aucune classe avec ce code.");
+    const { data, error } = await readBody(request);
+    if (error) return fail(400, error);
+    if (!sameToken(await sha256(clean(data.token, 80)), klass.tokenHash)) {
+      return fail(403, "Seul le professeur de cette classe peut retirer un élève.");
+    }
+    // Idempotent: removing someone already gone is a success, not an error.
+    await store.delete("student:" + code + ":" + decodeURIComponent(studentMatch[2]));
+    return json({ ok: true });
+  }
+
   const classMatch = path.match(/^\/api\/classes\/([A-Za-z0-9-]{1,12})(\/[a-z]+)?$/);
   if (classMatch) {
     const code = normalizeCode(classMatch[1]);

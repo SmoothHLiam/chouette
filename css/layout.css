@@ -717,3 +717,15 @@
   color: var(--muted);
   word-break: break-all;
 }
+
+/* Row actions on assignments and roster entries. */
+.assign-row .icon-btn,
+.record-row .icon-btn {
+  width: 36px;
+  height: 36px;
+  font-size: 0.95rem;
+  flex: 0 0 auto;
+}
+.assign-row .icon-btn + .icon-btn,
+.record-row .icon-btn + .icon-btn { margin-left: 6px; }
+.record-row .record-best { margin-left: auto; }

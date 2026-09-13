@@ -360,6 +360,33 @@ check("a teacher's own play never counts as homework",
 check("a student with no class has no homework",
   School.statusFor({ role: "student", classCode: null, assignments: {} }) === null);
 
+/* Editing an assignment keeps its identity, so finished work stays finished. */
+var edited = School.updateAssignment(klass.code, a1.id,
+  { gameId: "eclair", goal: "correct", target: 30, note: "Chapitre 6" });
+eq("editing keeps the assignment id", edited.id, a1.id);
+eq("…and applies the new target", edited.target, 30);
+eq("…and the new note", edited.note, "Chapitre 6");
+eq("…and it reads back changed", School.describe(School.get(klass.code).assignments[0]),
+  "Éclair Rapide — 30 bonnes réponses");
+check("…while a student who finished it stays finished",
+  student.assignments[School.progressKey(klass.code, a1.id)].done === true);
+eq("…so the class still counts it as done", School.statusFor(student).done, 2);
+check("editing a missing assignment is a no-op",
+  School.updateAssignment(klass.code, "nope", { gameId: "eclair", goal: "play" }) === null);
+
+/* Removing a student clears their row and nobody else's. */
+School.mergeCloudRoster(klass.code, [
+  { id: "other-student", name: "Léo", xp: 50, done: {}, at: Date.now() }
+]);
+var before = School.roster(klass.code).length;
+check("there are two students to begin with", before === 2, String(before));
+check("removing one reports success", School.removeStudent(klass.code, "other-student") === true);
+eq("…leaving exactly one", School.roster(klass.code).length, 1);
+check("…and it is the other student", School.roster(klass.code)[0].name === "Camille");
+check("removing someone already gone is harmless",
+  School.removeStudent(klass.code, "other-student") === false);
+eq("…and changes nothing", School.roster(klass.code).length, 1);
+
 /* Results travel back to the teacher the same way they came. */
 var report = School.progressCode(student);
 check("a progress code is produced", typeof report === "string" && report.indexOf("CHOUP1.") === 0);

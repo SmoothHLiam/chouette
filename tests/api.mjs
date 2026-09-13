@@ -164,6 +164,31 @@ const clash = await call("POST", "/api/classes", { name: "Clash", preferred: "AB
 check("a taken code is not handed out twice", clash.data.class.code !== "ABC234", clash.data.class.code);
 check("…and a fresh one is issued instead", /^[A-Z2-9]{6}$/.test(clash.data.class.code));
 
+/* ------------------------------------------------- removing one student --- */
+eq("removing a student needs the teacher's token",
+  (await call("DELETE", `/api/classes/${code}/students/student-xyz`, { token: "nope" })).status, 403);
+eq("…and the roster is untouched",
+  (await call("GET", `/api/classes/${code}/roster?token=${token}`)).data.students.length, 2);
+
+const kicked = await call("DELETE", `/api/classes/${code}/students/student-xyz`, { token });
+eq("the teacher can remove a student", kicked.status, 200);
+const afterKick = await call("GET", `/api/classes/${code}/roster?token=${token}`);
+eq("…the roster is one shorter", afterKick.data.students.length, 1);
+eq("…and it is the right one left", afterKick.data.students[0].name, "Camille");
+eq("removing someone already gone still succeeds",
+  (await call("DELETE", `/api/classes/${code}/students/student-xyz`, { token })).status, 200);
+eq("removing from an unknown class 404s",
+  (await call("DELETE", "/api/classes/ZZZZZZ/students/abc", { token })).status, 404);
+eq("a student cannot be removed with GET",
+  (await call("GET", `/api/classes/${code}/students/student-abc`)).status, 405);
+
+/* A removed student who plays again simply comes back — nothing bans them. */
+await call("POST", `/api/classes/${code}/progress`, {
+  studentId: "student-xyz", name: "Léo", xp: 130, done: {}
+});
+eq("a removed student reappears if they play again",
+  (await call("GET", `/api/classes/${code}/roster?token=${token}`)).data.students.length, 2);
+
 /* -------------------------------------------------------------- delete ---- */
 eq("a wrong token cannot delete a class",
   (await call("DELETE", "/api/classes/" + code, { token: "nope" })).status, 403);

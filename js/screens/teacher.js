@@ -219,13 +219,32 @@
         metaNodes[a.id] = { node: metaNode, assignment: a };
         mid.appendChild(metaNode);
         row.appendChild(mid);
+
+        var edit = U.el("button", "icon-btn", "✏️");
+        edit.title = "Modifier ce devoir";
+        edit.setAttribute("aria-label", "Modifier ce devoir");
+        edit.addEventListener("click", function () {
+          App.Sound.click();
+          assignmentModal(k, a);
+        });
+        row.appendChild(edit);
+
         var del = U.el("button", "icon-btn", "🗑");
         del.title = "Supprimer ce devoir";
+        del.setAttribute("aria-label", "Supprimer ce devoir");
         del.addEventListener("click", function () {
-          App.School.removeAssignment(k.code, a.id);
-          publish(App.School.get(k.code));
           App.Sound.click();
-          App.Router.go("teacher");
+          confirmModal({
+            title: "Supprimer ce devoir ?",
+            body: "« " + App.School.describe(a) + " » disparaîtra de l'écran de tes élèves, " +
+                  "y compris de ceux qui l'ont déjà rendu.",
+            confirm: "Supprimer",
+            onConfirm: function () {
+              App.School.removeAssignment(k.code, a.id);
+              publish(App.School.get(k.code));
+              App.Router.go("teacher");
+            }
+          });
         });
         row.appendChild(del);
         box.appendChild(row);
@@ -233,9 +252,9 @@
       return box;
     }
 
-    function assignmentModal(k) {
+    function assignmentModal(k, existing) {
       App.UI.modal(function (box, close) {
-        box.appendChild(U.el("h3", null, "Nouveau devoir"));
+        box.appendChild(U.el("h3", null, existing ? "Modifier le devoir" : "Nouveau devoir"));
 
         var gameSel = U.el("select", "level-select");
         var anyOpt = U.el("option", null, "N'importe quel jeu");
@@ -277,6 +296,15 @@
         goalSel.addEventListener("change", syncTarget);
         syncTarget();
 
+        if (existing) {
+          gameSel.value = existing.gameId;
+          goalSel.value = existing.goal;
+          syncTarget();
+          if (existing.target) target.value = String(existing.target);
+          if (existing.due) due.value = existing.due;
+          note.value = existing.note || "";
+        }
+
         [["Jeu", gameSel], ["Objectif", goalSel], ["Valeur", target],
          ["À rendre pour", due], ["Consigne", note]].forEach(function (pair) {
           var field = U.el("label", "field");
@@ -285,22 +313,45 @@
           box.appendChild(field);
         });
 
+        if (existing) {
+          box.appendChild(U.el("p", "class-hint",
+            "Les élèves qui l'ont déjà rendu le restent. Pour que tout le monde " +
+            "recommence, supprime ce devoir et poses-en un nouveau."));
+        }
+
         var row = U.el("div", "modal-actions");
         row.appendChild(App.UI.bigButton("Annuler", { variant: "ghost", onClick: close }));
-        row.appendChild(App.UI.bigButton("Créer", {
+        row.appendChild(App.UI.bigButton(existing ? "Enregistrer" : "Créer", {
           onClick: function () {
-            App.School.addAssignment(k.code, {
+            var payload = {
               gameId: gameSel.value,
               goal: goalSel.value,
               target: parseInt(target.value, 10) || 0,
               due: due.value || null,
               note: note.value.trim()
-            });
+            };
+            if (existing) App.School.updateAssignment(k.code, existing.id, payload);
+            else App.School.addAssignment(k.code, payload);
             publish(App.School.get(k.code));
             App.Sound.coin();
             close();
             App.Router.go("teacher");
           }
+        }));
+        box.appendChild(row);
+      });
+    }
+
+    /** A yes/no dialog for anything that destroys something. */
+    function confirmModal(opts) {
+      App.UI.modal(function (box, close) {
+        box.appendChild(U.el("h3", null, opts.title));
+        box.appendChild(U.el("p", null, opts.body));
+        var row = U.el("div", "modal-actions");
+        row.appendChild(App.UI.bigButton("Annuler", { variant: "ghost", onClick: close }));
+        row.appendChild(App.UI.bigButton(opts.confirm, {
+          variant: "danger",
+          onClick: function () { close(); opts.onConfirm(); }
         }));
         box.appendChild(row);
       });
@@ -394,6 +445,32 @@
         var count = U.el("span", "record-best", student.done + " / " + k.assignments.length);
         if (k.assignments.length && student.done >= k.assignments.length) count.classList.add("all-done");
         row.appendChild(count);
+
+        var kick = U.el("button", "icon-btn", "🗑");
+        kick.title = "Retirer " + student.name + " de la classe";
+        kick.setAttribute("aria-label", "Retirer " + student.name + " de la classe");
+        kick.addEventListener("click", function () {
+          App.Sound.click();
+          confirmModal({
+            title: "Retirer " + student.name + " ?",
+            body: "Ses résultats disparaîtront de ta liste. Rien n'est effacé sur son " +
+                  "appareil : s'il rejoue avec le code de la classe, il réapparaîtra ici.",
+            confirm: "Retirer",
+            onConfirm: function () {
+              App.School.removeStudent(k.code, student.key);
+              var after = App.School.roster(k.code);
+              renderRoster(k, list, after);
+              refreshCounts(k.code);
+              if (k.cloud) {
+                App.Sync.removeStudent(k, student.key).then(function (res) {
+                  if (!res.ok && !res.offline) App.UI.toast(res.error || "Retrait non synchronisé.", "⚠️");
+                });
+              }
+              App.UI.toast(student.name + " a été retiré de la classe.", "👋");
+            }
+          });
+        });
+        row.appendChild(kick);
         list.appendChild(row);
       });
     }
