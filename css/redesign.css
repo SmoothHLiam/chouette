@@ -1,0 +1,294 @@
+/*
+ * Chouette — editorial redesign
+ *
+ * This file intentionally sits on top of the original styles. It keeps the
+ * game's behaviour and Claude's source CSS untouched while replacing the
+ * visual language with a quieter, light-grey product system.
+ */
+
+:root,
+[data-theme="azur"],
+[data-theme="lavande"],
+[data-theme="metro"],
+[data-theme="automne"],
+[data-theme="neon"] {
+  --bg: #f4f5f2;
+  --bg2: #f4f5f2;
+  --glow1: transparent;
+  --glow2: transparent;
+  --panel: #ffffff;
+  --panel-solid: #ffffff;
+  --panel-line: #dfe2dc;
+  --ink: #202520;
+  --muted: #687068;
+  --accent: #3e5b47;
+  --accent-ink: #ffffff;
+  --gold: #8a6427;
+  --good: #31704a;
+  --bad: #b4493f;
+  --radius: 10px;
+  --radius-lg: 14px;
+  --shadow: 0 12px 32px rgba(32, 37, 32, 0.08);
+  --press: #294032;
+  --font: "DM Sans", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --display: "Newsreader", Georgia, serif;
+}
+
+body {
+  background: #f4f5f2;
+  color: var(--ink);
+  font-weight: 400;
+}
+
+body::before,
+body::after { display: none; }
+
+#app {
+  max-width: 960px;
+  padding: 24px 24px 64px;
+}
+
+h1, h2, h3 { letter-spacing: -0.025em; }
+
+.screen { animation: screenIn 0.22s ease-out both; }
+@keyframes screenIn {
+  from { opacity: 0; transform: translateY(6px); }
+}
+
+/* Controls ------------------------------------------------------------- */
+.btn {
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  padding: 13px 20px;
+  font-size: .94rem;
+  font-weight: 600;
+  box-shadow: none;
+  transition: background-color .15s ease, border-color .15s ease, transform .15s ease;
+}
+.btn:hover { filter: none; background: #314b3a; }
+.btn:active { transform: translateY(1px); box-shadow: none; }
+.btn:disabled { box-shadow: none; }
+.btn-ghost {
+  background: #fff;
+  color: var(--ink);
+  border-color: var(--panel-line);
+  box-shadow: none;
+}
+.btn-ghost:hover { background: #eef0ec; border-color: #c9cec7; }
+.btn-danger { background: var(--bad); border-color: var(--bad); }
+.icon-btn {
+  border-radius: 8px;
+  background: #fff;
+}
+.icon-btn:hover { background: #ecefea; }
+.linkish { font-weight: 500; text-decoration-thickness: 1px; }
+button:focus-visible, select:focus-visible, input:focus-visible {
+  outline: 2px solid #738e7a;
+  outline-offset: 2px;
+}
+.chip { border-radius: 7px; background: #f8f9f7; }
+.chip-streak.hot { border-color: #d8c8ae; box-shadow: none; }
+.notice { background: #f8f2e8; border-color: #e1cfaf; color: #72521f; border-radius: 8px; }
+
+/* Surfaces ------------------------------------------------------------- */
+.topbar {
+  padding: 10px 0 18px;
+  margin-bottom: 28px;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--panel-line);
+  border-radius: 0;
+  backdrop-filter: none;
+}
+.who { border-radius: 8px; }
+.who:hover { background: #e9ece7; }
+.who-avatar {
+  width: 40px;
+  height: 40px;
+  font-size: 1.35rem;
+  border-radius: 50%;
+  background: #e8ede8;
+}
+.who-text strong { font-weight: 600; }
+.xp-bar, .quest-track { background: #e3e6e1; border: 0; }
+.xp-bar { height: 7px; }
+.xp-fill, .quest-fill, .play-meter-fill {
+  background: var(--accent);
+}
+.xp-fill::after { display: none; }
+
+.home { gap: 30px; }
+.hello-card {
+  padding: 28px 30px;
+  background: #e8ece7;
+  border-color: #d8ddd6;
+  border-radius: 14px;
+}
+.hello-text h2 { font-size: clamp(1.65rem, 4vw, 2.15rem); font-weight: 500; }
+.hello-text p { font-weight: 400; }
+.owl { filter: saturate(.45); }
+.owl-happy { animation: none; }
+
+.section-head { margin-bottom: 14px; }
+.section-head h3 { font: 600 1.3rem/1.2 var(--display); }
+.section-note { font-size: .78rem; }
+.level-chip { background: transparent; border-radius: 7px; font-weight: 600; }
+.level-chip:hover { background: #e9ece7; }
+
+.quest, .wide-card, .assign-row, .wotd {
+  background: #fff;
+  border-color: var(--panel-line);
+  border-radius: 10px;
+  box-shadow: none;
+}
+.quest { padding: 14px 16px; }
+.quest.done { border-color: #b9d0c0; background: #f4f8f4; }
+.quest-text, .quest-prize { font-weight: 600; }
+.quest-prize { color: #765d35; }
+
+.game-grid {
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 10px;
+}
+.game-card {
+  background: #fff;
+  border-color: var(--panel-line);
+  border-radius: 10px;
+  box-shadow: none;
+  padding: 17px;
+  transition: border-color .15s ease, box-shadow .15s ease, transform .15s ease;
+}
+.game-card:hover {
+  transform: translateY(-2px);
+  border-color: #bcc4bb;
+  box-shadow: 0 8px 20px rgba(32, 37, 32, .07);
+  filter: none;
+}
+.game-card:active { transform: none; box-shadow: none; }
+.game-icon {
+  width: 46px;
+  height: 46px;
+  border-radius: 9px;
+  background: #edf0eb;
+  border-color: #e0e4de;
+  filter: grayscale(.25);
+}
+.game-name { font-weight: 600; }
+.game-best { color: #70776f; font-weight: 500; }
+.wide-card { padding: 17px 18px; }
+.wide-card:hover, .mini-card:hover { background: #f9faf8; transform: translateY(-1px); }
+.review-card { border-color: #cad6ca; }
+.mini-card {
+  background: #fff;
+  border-color: var(--panel-line);
+  border-radius: 10px;
+  font-weight: 500;
+}
+.mini-icon, .wide-icon { filter: grayscale(.2); }
+
+/* Onboarding and utility pages ---------------------------------------- */
+.level-screen { gap: 26px; padding-top: 7vh; }
+.brand-name {
+  background: none;
+  color: var(--ink);
+  font-size: clamp(3rem, 9vw, 4.6rem);
+  font-weight: 500;
+}
+.brand-tag { font-weight: 400; letter-spacing: 0; }
+.level-card, .auth-card, .role-card, .page-card, .profile-card, .shop-card,
+.badge-card, .teacher-panel, .class-card {
+  background: #fff;
+  border-color: var(--panel-line);
+  border-radius: 14px;
+  box-shadow: var(--shadow);
+  backdrop-filter: none;
+}
+.level-card { max-width: 600px; padding: 34px; }
+.level-question { font-weight: 500; }
+.level-select, input, textarea, select {
+  border-radius: 8px !important;
+  background-color: #fff !important;
+  color: var(--ink) !important;
+  border-color: #ccd1ca !important;
+  font-family: var(--font) !important;
+  box-shadow: none !important;
+}
+.level-blurb { color: var(--accent); font-weight: 500; }
+
+/* Game interface ------------------------------------------------------- */
+.play-wrap { gap: 14px; max-width: 760px; margin: 0 auto; }
+.play-bar {
+  padding: 8px 0 16px;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--panel-line);
+  border-radius: 0;
+}
+.play-title { font-weight: 600; }
+.play-score-value { color: var(--ink); font-family: var(--font); font-weight: 600; }
+.play-meter { height: 8px; background: #e0e4de; border: 0; border-radius: 4px; }
+.play-meter-fill.low { background: var(--bad); animation: none; }
+.play-meter-text { top: 10px; place-items: start end; color: var(--muted); text-shadow: none; font-weight: 500; }
+.combo-box { font-family: var(--font); font-weight: 600; color: #765d35; }
+.combo-box.on[class*="tier"] { color: #765d35; text-shadow: none; }
+.qcard {
+  background: #fff;
+  border-color: var(--panel-line);
+  border-radius: 14px;
+  padding: 36px 24px;
+  box-shadow: 0 6px 22px rgba(32, 37, 32, .05);
+}
+.qtag { font-weight: 600; letter-spacing: .09em; }
+.qprompt, .duel-word, .conj-line, .phrase-en { font-weight: 500; }
+.opt, .tile, .duel-btn {
+  background: #fff;
+  border: 1px solid var(--panel-line);
+  border-radius: 9px;
+  box-shadow: none;
+  font-weight: 500;
+}
+.opt:hover, .tile:hover, .duel-btn:hover {
+  border-color: #8fa093;
+  background: #f7f9f6;
+  filter: none;
+  transform: translateY(-1px);
+}
+.opt:active, .tile:active, .duel-btn:active { transform: none; box-shadow: none; }
+.opt-key { background: #eef0ed; border-radius: 5px; }
+.opt.is-correct { background: #edf6ef; border-color: #6b9978; }
+.opt.is-wrong { background: #faeeee; border-color: #c98179; }
+.duel-le, .duel-la { background: #fff; }
+.conj-pron { color: var(--accent); }
+.conj-go { border-radius: 8px; box-shadow: none; font-weight: 600; }
+.accent-key { border-radius: 7px; background: #fff; }
+.phrase-answer { background: #f0f2ee; border-color: #cfd4cd; border-radius: 9px; }
+
+/* Results, dialogs and feedback --------------------------------------- */
+.results-score, .rstat {
+  background: #fff;
+  border-color: var(--panel-line);
+  border-radius: 10px;
+}
+.results-score-value { background: none; color: var(--ink); font-family: var(--display); }
+.reward { background: #f8f2e8; border-color: #e1cfaf; border-radius: 8px; font-weight: 600; }
+.modal-back { background: rgba(31, 36, 31, .38); backdrop-filter: blur(2px); }
+.modal, .toast {
+  background: #fff;
+  color: var(--ink);
+  border-color: var(--panel-line);
+  border-radius: 12px;
+}
+.toast { font-weight: 500; }
+.switch { background: #d7dbd5; }
+.switch .knob { background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.18); }
+.switch.on { background: var(--accent); }
+.fx-pop { text-shadow: none; }
+
+@media (max-width: 620px) {
+  #app { padding: 16px 16px 44px; }
+  .hello-card { padding: 22px 20px; }
+  .hello-card .owl { width: 68px !important; }
+  .game-grid { grid-template-columns: 1fr; }
+  .level-card { padding: 26px 20px; }
+  .topbar { margin-bottom: 22px; }
+}
