@@ -234,8 +234,31 @@
      * local copy first and only redrawn if the server had something new. */
     if (p.role === "student" && p.classCode && App.Sync.available()) {
       App.Sync.refreshClass(p).then(function (res) {
-        if (!res || !res.ok || !res.changed) return;
+        if (!res || !res.ok) return;
         if (App.Router.current !== "home") return;
+
+        if (res.removed) {
+          var name = res.klass ? res.klass.name : "ta classe";
+          App.School.leaveClass(p);
+          App.Router.go("home");
+          App.UI.modal(function (box, close) {
+            box.appendChild(U.el("h3", null, "Tu ne fais plus partie de « " + name + " »"));
+            box.appendChild(U.el("p", null,
+              "Ton professeur t'a retiré de la classe, donc ses devoirs ont disparu d'ici. " +
+              "Tu gardes ton XP, tes badges et ta série — et si c'est une erreur, tu peux " +
+              "rejoindre à nouveau avec le code."));
+            var row = U.el("div", "modal-actions");
+            row.appendChild(App.UI.bigButton("D'accord", { variant: "ghost", onClick: close }));
+            row.appendChild(App.UI.bigButton("Rejoindre une classe", {
+              icon: "🎒",
+              onClick: function () { close(); App.Router.go("classcode"); }
+            }));
+            box.appendChild(row);
+          });
+          return;
+        }
+
+        if (!res.changed) return;
         App.UI.toast("Ton professeur a mis les devoirs à jour !", "🎒", "good");
         App.Router.go("home");
       });

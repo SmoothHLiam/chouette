@@ -257,7 +257,12 @@
       // Tell the teacher's roster, if there is one. Never blocks the results.
       // Finished homework goes up at once; ordinary practice can wait a while.
       if (p.role === "student" && p.classCode) {
-        App.Sync.pushProgress(p, { force: summary.assignments.length > 0 });
+        App.Sync.pushProgress(p, { force: summary.assignments.length > 0 })
+          .then(function (res) {
+            // The server refuses work from someone the teacher removed; the
+            // home screen picks the change up on the way back.
+            if (res && res.removed) App.School.leaveClass(p);
+          });
       }
 
       App.Router.go("results", summary);

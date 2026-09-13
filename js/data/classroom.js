@@ -193,6 +193,25 @@
     return found;
   }
 
+  /** The student's side of being removed: drop the class and the homework
+   *  record that went with it, so rejoining later starts clean. */
+  function leaveClass(profile) {
+    var code = profile.classCode;
+    if (!code) return null;
+    var klass = get(code);
+    var prefix = normalizeCode(code) + ":";
+    Object.keys(profile.assignments || {}).forEach(function (key) {
+      if (key.indexOf(prefix) === 0) delete profile.assignments[key];
+    });
+    if (klass) {
+      var me = studentKey(profile);
+      if (klass.roster[me]) { delete klass.roster[me]; put(klass); }
+    }
+    profile.classCode = null;
+    App.State.save();
+    return klass;
+  }
+
   /** Takes a student off the roster on this device. */
   function removeStudent(code, key) {
     var klass = get(code);
@@ -505,6 +524,7 @@
     updateAssignment: updateAssignment,
     removeAssignment: removeAssignment,
     removeStudent: removeStudent,
+    leaveClass: leaveClass,
     describe: describe,
     dueLabel: dueLabel,
     satisfied: satisfied,

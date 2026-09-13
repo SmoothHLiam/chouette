@@ -181,7 +181,13 @@ export async function handleApi(request, store) {
       return fail(403, "Seul le professeur de cette classe peut retirer un élève.");
     }
     // Idempotent: removing someone already gone is a success, not an error.
-    await store.delete("student:" + code + ":" + decodeURIComponent(studentMatch[2]));
+    // The row is deleted and a marker left behind, so the student's own app can
+    // be told they were removed rather than having to guess from its absence —
+    // a missing row would otherwise be indistinguishable from a failed first
+    // sync, and a flaky network would eject people.
+    const gone = decodeURIComponent(studentMatch[2]);
+    await store.delete("student:" + code + ":" + gone);
+    await store.put("gone:" + code + ":" + gone, { id: gone, at: Date.now() });
     return json({ ok: true });
   }
 
@@ -225,6 +231,8 @@ export async function handleApi(request, store) {
       }
       const rows = await store.list("student:" + code + ":");
       for (const row of rows) await store.delete(row.key);
+      const markers = await store.list("gone:" + code + ":");
+      for (const marker of markers) await store.delete(marker.key);
       await store.delete("class:" + code);
       return json({ ok: true, deleted: rows.length });
     }
@@ -237,6 +245,14 @@ export async function handleApi(request, store) {
       if (error) return fail(400, error);
       const studentId = clean(data.studentId, 64);
       if (!studentId) return fail(400, "Identifiant d'élève manquant.");
+
+      // Someone the teacher removed does not silently reappear by playing on.
+      // Typing the class code again is a deliberate rejoin and clears it.
+      const tombstone = await store.get("gone:" + code + ":" + studentId);
+      if (tombstone && !data.rejoin) {
+        return json({ ok: true, removed: true, stored: false });
+      }
+      if (tombstone) await store.delete("gone:" + code + ":" + studentId);
 
       const done = {};
       const source = data.done && typeof data.done === "object" ? data.done : {};
@@ -253,6 +269,19 @@ export async function handleApi(request, store) {
         at: Date.now()
       });
       return json({ ok: true });
+    }
+
+    /* GET /api/classes/:code/membership?studentId=… — "am I still in this
+     * class?". Answers only about the id you ask for, so knowing the code
+     * reveals nothing about anyone else. */
+    if (sub === "/membership" && method === "GET") {
+      if (!klass) return fail(404, "Aucune classe avec ce code.");
+      const who = clean(url.searchParams.get("studentId"), 64);
+      if (!who) return fail(400, "Identifiant d'élève manquant.");
+      const row = await store.get("student:" + code + ":" + who);
+      if (row) return json({ ok: true, member: true, removed: false });
+      const tombstone = await store.get("gone:" + code + ":" + who);
+      return json({ ok: true, member: false, removed: !!tombstone });
     }
 
     /* GET /api/classes/:code/roster?token=… — the teacher's view. */

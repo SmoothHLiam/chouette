@@ -182,12 +182,40 @@ eq("removing from an unknown class 404s",
 eq("a student cannot be removed with GET",
   (await call("GET", `/api/classes/${code}/students/student-abc`)).status, 405);
 
-/* A removed student who plays again simply comes back — nothing bans them. */
-await call("POST", `/api/classes/${code}/progress`, {
-  studentId: "student-xyz", name: "Léo", xp: 130, done: {}
+/* Membership: the one question a student's app is allowed to ask. */
+const seatIn = await call("GET", `/api/classes/${code}/membership?studentId=student-abc`);
+eq("a member is told they are in", seatIn.data.member, true);
+eq("…and not that they were removed", seatIn.data.removed, false);
+
+const seatOut = await call("GET", `/api/classes/${code}/membership?studentId=student-xyz`);
+eq("a removed student is told they are out", seatOut.data.member, false);
+eq("…and that it was a removal", seatOut.data.removed, true);
+
+/* The distinction that stops a flaky network ejecting anyone. */
+const seatUnknown = await call("GET", `/api/classes/${code}/membership?studentId=never-seen`);
+eq("someone who never synced is not a member", seatUnknown.data.member, false);
+eq("…but was NOT removed either", seatUnknown.data.removed, false);
+eq("membership needs an id", (await call("GET", `/api/classes/${code}/membership`)).status, 400);
+
+/* A removed student playing on does not quietly reappear. */
+const afterRemovalPlay = await call("POST", `/api/classes/${code}/progress`, {
+  studentId: "student-xyz", name: "Léo", xp: 130, done: { d1: 10 }
 });
-eq("a removed student reappears if they play again",
+eq("their work is accepted but not stored", afterRemovalPlay.data.removed, true);
+eq("…and they are told so", afterRemovalPlay.data.stored, false);
+eq("…so the roster stays as the teacher left it",
+  (await call("GET", `/api/classes/${code}/roster?token=${token}`)).data.students.length, 1);
+
+/* Typing the code again is deliberate, and lets them back in. */
+const rejoined = await call("POST", `/api/classes/${code}/progress`, {
+  studentId: "student-xyz", name: "Léo", xp: 130, done: {}, rejoin: true
+});
+eq("rejoining is accepted", rejoined.status, 200);
+check("…and is not reported as removed", !rejoined.data.removed);
+eq("…the roster has them back",
   (await call("GET", `/api/classes/${code}/roster?token=${token}`)).data.students.length, 2);
+eq("…and membership agrees",
+  (await call("GET", `/api/classes/${code}/membership?studentId=student-xyz`)).data.member, true);
 
 /* -------------------------------------------------------------- delete ---- */
 eq("a wrong token cannot delete a class",

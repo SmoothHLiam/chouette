@@ -183,17 +183,34 @@
       return request("GET", "/api/classes/" + App.School.normalizeCode(code));
     },
 
+    /** "Am I still in this class?" — answered about this student only. */
+    checkMembership: function (profile) {
+      if (!profile || !profile.classCode) return Promise.resolve({ ok: false, error: "no class" });
+      var klass = App.School.get(profile.classCode);
+      if (!klass || !klass.cloud) return Promise.resolve({ ok: false, error: "local class" });
+      return request("GET", "/api/classes/" + App.School.normalizeCode(profile.classCode) +
+        "/membership?studentId=" + encodeURIComponent(App.State.syncId()));
+    },
+
     /** Re-reads the student's class, so assignments set after they joined
-     *  actually arrive. Reports whether anything they would notice changed. */
+     *  actually arrive, and notices if the teacher has removed them. */
     refreshClass: function (profile) {
       if (!profile || !profile.classCode) return Promise.resolve({ ok: false, error: "no class" });
       var klass = App.School.get(profile.classCode);
       if (!klass || !klass.cloud) return Promise.resolve({ ok: false, error: "local class" });
       var before = App.School.signature(klass);
-      return App.Sync.fetchClass(profile.classCode).then(function (res) {
-        if (!res.ok) return res;
-        var updated = App.School.adoptCloud(res.class);
-        return { ok: true, changed: App.School.signature(updated) !== before, klass: updated };
+
+      return App.Sync.checkMembership(profile).then(function (seat) {
+        // Only an explicit removal ejects anyone. A missing row could just mean
+        // a first sync that never landed, and must never cost a student a class.
+        if (seat.ok && seat.removed) {
+          return { ok: true, removed: true, klass: App.School.get(profile.classCode) };
+        }
+        return App.Sync.fetchClass(profile.classCode).then(function (res) {
+          if (!res.ok) return res;
+          var updated = App.School.adoptCloud(res.class);
+          return { ok: true, changed: App.School.signature(updated) !== before, klass: updated };
+        });
       });
     },
 
@@ -226,6 +243,7 @@
         return Promise.resolve({ ok: true, skipped: true });
       }
 
+      if (opts.rejoin) payload.rejoin = true;
       return request("POST", "/api/classes/" + code + "/progress", payload)
         .then(function (res) {
           if (res.ok) {

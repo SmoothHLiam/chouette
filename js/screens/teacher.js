@@ -453,8 +453,9 @@
           App.Sound.click();
           confirmModal({
             title: "Retirer " + student.name + " ?",
-            body: "Ses résultats disparaîtront de ta liste. Rien n'est effacé sur son " +
-                  "appareil : s'il rejoue avec le code de la classe, il réapparaîtra ici.",
+            body: "Il sera retiré de la classe : tes devoirs disparaîtront de son " +
+                  "appareil et ses résultats de ta liste. Il garde son XP et ses badges, " +
+                  "et pourra rejoindre s'il retape le code.",
             confirm: "Retirer",
             onConfirm: function () {
               App.School.removeStudent(k.code, student.key);
