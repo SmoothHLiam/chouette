@@ -2,3 +2,7 @@ node_modules/
 .DS_Store
 *.log
 .chouette-data.json
+
+# Wrangler's local state and cache, created by `wrangler dev` / `deploy`
+.wrangler/
+worker/.wrangler/
