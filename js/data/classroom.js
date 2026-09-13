@@ -372,6 +372,14 @@
     }));
   }
 
+  /** A fingerprint of everything a student would notice changing. */
+  function signature(klass) {
+    if (!klass) return "";
+    return [klass.name, klass.level].concat((klass.assignments || []).map(function (a) {
+      return [a.id, a.gameId, a.goal, a.target, a.due || "", a.note || ""].join("|");
+    }).sort()).join("\u00a7");
+  }
+
   /** Stores a class fetched from the sync service. */
   function adoptCloud(data) {
     var existing = get(data.code);
@@ -474,6 +482,7 @@
     progressCode: progressCode,
     progressPayload: progressPayload,
     adoptCloud: adoptCloud,
+    signature: signature,
     mergeCloudRoster: mergeCloudRoster,
     importProgress: importProgress,
     roster: roster,

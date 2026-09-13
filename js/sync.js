@@ -16,17 +16,28 @@
    * homework always writes immediately; a plain game of practice waits, so a
    * keen student cannot burn a class's daily budget on their own. */
   var QUIET_GAP = 10 * 60 * 1000;
-  var state = { checked: false, online: false, base: null };
+  var state = { checked: false, online: false, base: null, configured: false };
+
+  var LOCAL_HOST = /^(localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\])$/;
 
   function base() {
     if (state.base !== null) return state.base;
     var configured = (App.CONFIG && App.CONFIG.syncUrl) || "";
-    if (configured) {
+    var loc = global.location;
+    // Running from localhost means `npm start`, which serves its own API.
+    // Honouring a production syncUrl there would send development traffic to
+    // the live class data, so same-origin always wins locally.
+    var onLocalhost = !!(loc && LOCAL_HOST.test(loc.hostname));
+
+    if (configured && !onLocalhost) {
       state.base = configured.replace(/\/+$/, "");
-    } else if (global.location && /^https?:$/.test(global.location.protocol)) {
-      state.base = global.location.origin;
+      state.configured = true;
+    } else if (loc && /^https?:$/.test(loc.protocol)) {
+      state.base = loc.origin;
+      state.configured = false;
     } else {
       state.base = "";     // file:// — offline by nature
+      state.configured = false;
     }
     return state.base;
   }
@@ -56,7 +67,10 @@
             var looksLikePage = /^\s*(<|\uFEFF<)/.test(raw);
             // The commonest cause by far: the game is hosted somewhere that has
             // no API, and syncUrl was never pointed at the Worker. Say so.
-            var unset = !(App.CONFIG && App.CONFIG.syncUrl);
+            // What matters is the address actually in use, not what the file
+            // says: on localhost a configured URL is deliberately ignored.
+            base();
+            var unset = !state.configured;
             var hint = unset
               ? " Cette adresse n'héberge pas l'API : indique l'adresse de ton" +
                 " Worker dans js/config.js (SYNC_URL)."
@@ -167,6 +181,20 @@
 
     fetchClass: function (code) {
       return request("GET", "/api/classes/" + App.School.normalizeCode(code));
+    },
+
+    /** Re-reads the student's class, so assignments set after they joined
+     *  actually arrive. Reports whether anything they would notice changed. */
+    refreshClass: function (profile) {
+      if (!profile || !profile.classCode) return Promise.resolve({ ok: false, error: "no class" });
+      var klass = App.School.get(profile.classCode);
+      if (!klass || !klass.cloud) return Promise.resolve({ ok: false, error: "local class" });
+      var before = App.School.signature(klass);
+      return App.Sync.fetchClass(profile.classCode).then(function (res) {
+        if (!res.ok) return res;
+        var updated = App.School.adoptCloud(res.class);
+        return { ok: true, changed: App.School.signature(updated) !== before, klass: updated };
+      });
     },
 
     fetchRoster: function (klass) {

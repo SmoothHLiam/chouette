@@ -228,5 +228,17 @@
     if (params && params.greet) {
       App.UI.toast("Niveau réglé sur " + App.LEVELS[level - 1].label + " !", "🎉", "good");
     }
+
+    /* The class is re-read every time this screen is shown, so homework set
+     * after a student joined still reaches them. The screen is drawn from the
+     * local copy first and only redrawn if the server had something new. */
+    if (p.role === "student" && p.classCode && App.Sync.available()) {
+      App.Sync.refreshClass(p).then(function (res) {
+        if (!res || !res.ok || !res.changed) return;
+        if (App.Router.current !== "home") return;
+        App.UI.toast("Ton professeur a mis les devoirs à jour !", "🎒", "good");
+        App.Router.go("home");
+      });
+    }
   });
 })(typeof window !== "undefined" ? window : globalThis);
