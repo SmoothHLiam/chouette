@@ -54,14 +54,20 @@
 
           if (data === null) {
             var looksLikePage = /^\s*(<|\uFEFF<)/.test(raw);
+            // The commonest cause by far: the game is hosted somewhere that has
+            // no API, and syncUrl was never pointed at the Worker. Say so.
+            var unset = !(App.CONFIG && App.CONFIG.syncUrl);
+            var hint = unset
+              ? " Cette adresse n'héberge pas l'API : indique l'adresse de ton" +
+                " Worker dans js/config.js (SYNC_URL)."
+              : "";
             return {
               ok: false,
               status: res.status,
               notJson: true,
-              error: looksLikePage
-                ? "Cette adresse renvoie une page web au lieu de données : la " +
-                  "synchronisation n'est pas installée dessus (HTTP " + res.status + ")."
-                : "Réponse illisible du serveur (HTTP " + res.status + ")."
+              error: (looksLikePage
+                ? "Cette adresse renvoie une page web au lieu de données (HTTP " + res.status + ")."
+                : "Réponse illisible du serveur (HTTP " + res.status + ").") + hint
             };
           }
           if (!res.ok) {
