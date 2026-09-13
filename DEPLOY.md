@@ -33,7 +33,8 @@ You need **Node.js**, which gives you the `npx` command used below.
    ```
 
    If it prints something like `v22.x.x`, you're set. If it says the command
-   isn't found, restart the terminal first — installers often need that.
+   isn't found, see [Node says "command not found"](#node-says-command-not-found)
+   below — it is nearly always one of three small things.
 
 ---
 
@@ -213,6 +214,60 @@ minors, tell them a first name is enough — the app never asks for more.
 
 ## When something goes wrong
 
+### Node says "command not found"
+
+**First, and this fixes it most of the time:** quit the terminal completely
+(**⌘Q** on macOS, not just closing the window), open a fresh one, and try again.
+An installer's PATH change only reaches terminals opened *afterwards*.
+
+**Do not type `bash`.** On macOS your shell is zsh, and typing `bash` starts a
+different shell that may not load the setup Node wrote. On Windows, `bash` opens
+WSL or Git Bash — separate environments that cannot see a Windows Node install.
+Use the terminal you are given: **Terminal** on macOS, **PowerShell** on Windows.
+Your macOS prompt ends in `%` for zsh and `$` for bash, which is a quick way to
+tell where you are.
+
+If it still is not found, run this and see which case you are in:
+
+```bash
+echo $SHELL
+which -a node npm npx
+ls -d /usr/local/bin/node /opt/homebrew/bin/node ~/.nvm 2>/dev/null
+```
+
+**Case 1 — `/usr/local/bin/node` exists, but `which node` finds nothing.**
+The standard installer worked; your PATH just does not include it.
+
+```bash
+echo 'export PATH="/usr/local/bin:$PATH"' >> ~/.zshrc
+source ~/.zshrc
+node --version
+```
+
+**Case 2 — `/opt/homebrew/bin/node` exists** (Homebrew on an Apple Silicon Mac).
+Homebrew's folder is not on the default PATH:
+
+```bash
+echo 'eval "$(/opt/homebrew/bin/brew shellenv)"' >> ~/.zprofile
+source ~/.zprofile
+node --version
+```
+
+**Case 3 — `~/.nvm` exists.** nvm needs a line in your shell config:
+
+```bash
+echo 'export NVM_DIR="$HOME/.nvm"' >> ~/.zshrc
+echo '[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"' >> ~/.zshrc
+source ~/.zshrc
+nvm install --lts
+```
+
+**Case 4 — none of those paths exist.** Node is not actually installed, whatever
+the download folder suggests. Get the **macOS Installer (.pkg)** from
+<https://nodejs.org> and check you pick the right chip: Apple menu → **About This
+Mac** shows either *Apple M-something* (choose **ARM64**) or *Intel* (choose
+**x64**). Run the installer, then quit and reopen Terminal.
+
 **The class says "cet appareil seulement".**
 The app couldn't reach the API. Open `https://your-address/api/health` in a
 browser — you should see `{"ok":true,...}`. If you get an error instead, the
@@ -235,6 +290,28 @@ The id in `worker/wrangler.toml` doesn't match a real namespace. Run
 Wait a minute and press **↻ Actualiser**. If it still hasn't, have them open
 their **Profil** — it says whether sync is active, and anything stuck is resent
 automatically next time they open the app.
+
+---
+
+## Option C — deploy without a terminal at all
+
+If the machine is locked down, or the terminal keeps fighting you, Cloudflare can
+build straight from GitHub and you never run a command.
+
+1. **Make the storage in the dashboard.** Cloudflare dashboard → **Storage &
+   Databases → KV → Create a namespace**. Call it `CHOUETTE`. Copy its ID.
+2. **Paste the ID on GitHub.** Open `worker/wrangler.toml` in your repository on
+   github.com, click the pencil icon, replace
+   `PASTE_YOUR_KV_NAMESPACE_ID_HERE` with the ID, and commit.
+3. **Connect the repository.** Dashboard → **Workers & Pages** → **Create** →
+   **Import a repository**, authorise GitHub, and pick your repo.
+4. **Set the root directory to `worker`**, leave the deploy command as
+   `npx wrangler deploy`, and click deploy.
+
+Cloudflare rebuilds and redeploys every time you push to the branch, which also
+removes the "redeploy after a change" step entirely. Note this is the one route
+in this guide I have not been able to test end to end, so if a screen does not
+match, trust the dashboard over this page.
 
 ---
 
