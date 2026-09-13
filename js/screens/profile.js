@@ -160,6 +160,23 @@
     accountRow.appendChild(switchBtn);
     settings.appendChild(accountRow);
 
+    var syncRow = U.el("div", "setting-row");
+    syncRow.appendChild(U.el("span", null, "☁️ Synchronisation"));
+    var syncState = U.el("small", "class-hint");
+    function showSync() {
+      var dot = U.el("span", "sync-dot" + (App.Sync.online ? " on" : ""));
+      U.clear(syncState);
+      syncState.appendChild(dot);
+      syncState.appendChild(document.createTextNode(
+        !App.Sync.available() ? "hors ligne (fichier local) — codes d'invitation"
+          : App.Sync.online ? "active" + (App.Sync.hasPending() ? " · envoi en attente" : "")
+          : "serveur injoignable — les résultats repartiront plus tard"));
+    }
+    showSync();
+    App.Sync.probe().then(showSync);
+    syncRow.appendChild(syncState);
+    settings.appendChild(syncRow);
+
     var resetRow = U.el("div", "setting-row");
     resetRow.appendChild(U.el("span", null, "🧹 Repartir de zéro"));
     var resetBtn = U.el("button", "linkish danger", "Effacer ma progression");

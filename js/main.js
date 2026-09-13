@@ -30,6 +30,12 @@
 
     App.Quests.ensureToday();
 
+    // Sync is best-effort: probe it, resend anything the network ate, and
+    // never let either step hold up the first screen.
+    App.Sync.probe().then(function (online) {
+      if (online) App.Sync.flush();
+    });
+
     // Role first, then the level question, then the game.
     App.Router.go(account ? App.afterSignIn() : "role");
 

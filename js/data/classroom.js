@@ -125,12 +125,16 @@
   function createClass(opts) {
     var school = load();
     var klass = {
-      code: uniqueCode(school),
+      // A code handed back by the server is already known to be unique across
+      // every device; a locally invented one is only unique on this one.
+      code: opts.code || uniqueCode(school),
       name: String(opts.name || "Ma classe").trim().slice(0, 40),
       teacher: String(opts.teacher || "").trim().slice(0, 30),
       level: opts.level || 1,
       created: Date.now(),
       owned: true,          // this device created it — the teacher's copy
+      cloud: !!opts.cloud,  // it is published, so students anywhere can join
+      token: opts.token || null,  // the teacher's key; never leaves this device
       assignments: [],
       roster: {}
     };
@@ -175,7 +179,10 @@
   function describe(assignment) {
     var game = App.Games.get(assignment.gameId);
     var goal = goalById(assignment.goal);
-    return (game ? game.name : assignment.gameId) + " — " + goal.text(assignment.target);
+    var where = assignment.gameId === "any"
+      ? "N'importe quel jeu"
+      : (game ? game.name : assignment.gameId);
+    return where + " — " + goal.text(assignment.target);
   }
 
   function dueLabel(assignment) {
@@ -247,9 +254,14 @@
     return completed;
   }
 
+  /* One identity per student, whichever road their results arrive by — the
+   * local roster, the sync service, or a pasted progress code. Using the same
+   * anonymous sync id for all three is what stops one student showing up as
+   * two rows on the teacher's list. */
   function studentKey(profile) {
-    var account = App.Accounts && App.Accounts.active();
-    return account ? account.id : "n:" + String(profile.name || "élève").toLowerCase();
+    if (App.State && App.State.syncId) return App.State.syncId();
+    if (profile.syncId) return profile.syncId;
+    return "n:" + String(profile.name || "élève").toLowerCase();
   }
 
   function recordRoster(klass, profile) {
@@ -332,8 +344,9 @@
 
   /* ----------------------------------------------------------- progress -- */
 
-  /** What a student sends back so the teacher can mark the work off. */
-  function progressCode(profile) {
+  /** Where this student is up to: the same facts whether they travel over the
+   *  network or inside a pasted progress code. */
+  function progressPayload(profile) {
     var klass = profile.classCode ? get(profile.classCode) : null;
     if (!klass) return null;
     var done = {};
@@ -341,9 +354,62 @@
       var rec = profile.assignments[progressKey(klass.code, a.id)];
       if (rec && rec.done) done[a.id] = rec.score || 0;
     });
+    return {
+      studentId: App.State.syncId ? App.State.syncId() : (profile.syncId || "anon"),
+      name: profile.name || "Élève",
+      xp: profile.xp,
+      done: done
+    };
+  }
+
+  /** What a student sends back so the teacher can mark the work off by hand. */
+  function progressCode(profile) {
+    var payload = progressPayload(profile);
+    if (!payload) return null;
     return PROGRESS_PREFIX + encode64(JSON.stringify({
-      c: klass.code, s: profile.name || "Élève", x: profile.xp, d: done
+      c: get(profile.classCode).code, i: payload.studentId,
+      s: payload.name, x: payload.xp, d: payload.done
     }));
+  }
+
+  /** Stores a class fetched from the sync service. */
+  function adoptCloud(data) {
+    var existing = get(data.code);
+    return put({
+      code: data.code,
+      name: data.name || "Classe",
+      teacher: data.teacher || "",
+      level: data.level || 1,
+      created: existing ? existing.created : Date.now(),
+      owned: existing ? existing.owned : false,
+      cloud: true,
+      token: existing ? existing.token : null,
+      assignments: (data.assignments || []).map(function (a) {
+        return {
+          id: a.id, gameId: a.gameId, goal: a.goal, target: a.target,
+          due: a.due, note: a.note, created: Date.now()
+        };
+      }),
+      roster: existing ? existing.roster : {}
+    });
+  }
+
+  /** Folds the server's roster into what this device already knows. */
+  function mergeCloudRoster(code, students) {
+    var klass = get(code);
+    if (!klass) return [];
+    (students || []).forEach(function (row) {
+      var key = row.id;                       // the same key the student writes locally
+      var entry = klass.roster[key] || (klass.roster[key] = { name: row.name, done: {}, xp: 0 });
+      entry.name = row.name || entry.name;
+      entry.xp = Math.max(entry.xp || 0, row.xp || 0);
+      entry.lastSeen = row.at || Date.now();
+      Object.keys(row.done || {}).forEach(function (aid) {
+        entry.done[aid] = { at: row.at || Date.now(), score: row.done[aid] };
+      });
+    });
+    put(klass);
+    return roster(code);
   }
 
   function importProgress(text) {
@@ -357,7 +423,8 @@
     }
     var klass = get(data.c);
     if (!klass) return { ok: false, error: "Ce code vient d'une autre classe." };
-    var key = "n:" + String(data.s || "élève").toLowerCase();
+    // Older codes carry no id; fall back to the name so they still merge.
+    var key = data.i || "n:" + String(data.s || "élève").toLowerCase();
     var entry = klass.roster[key] || (klass.roster[key] = { name: data.s, done: {}, xp: 0 });
     entry.name = data.s || entry.name;
     entry.xp = Math.max(entry.xp || 0, data.x || 0);
@@ -405,6 +472,9 @@
     joinByCode: joinByCode,
     importShare: importShare,
     progressCode: progressCode,
+    progressPayload: progressPayload,
+    adoptCloud: adoptCloud,
+    mergeCloudRoster: mergeCloudRoster,
     importProgress: importProgress,
     roster: roster,
     pretty: pretty,

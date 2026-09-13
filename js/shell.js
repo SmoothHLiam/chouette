@@ -254,6 +254,9 @@
       summary.badges = App.Achievements.check(summary);
       App.State.save();
 
+      // Tell the teacher's roster, if there is one. Never blocks the results.
+      if (p.role === "student" && p.classCode) App.Sync.pushProgress(p);
+
       App.Router.go("results", summary);
     }
 

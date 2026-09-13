@@ -280,6 +280,10 @@ var a2 = School.addAssignment(klass.code, { gameId: "boss", goal: "boss" });
 eq("assignments are stored", School.get(klass.code).assignments.length, 2);
 eq("an assignment describes itself", School.describe(a1), "Éclair Rapide — 20 bonnes réponses");
 eq("a boss assignment describes itself", School.describe(a2), "Le Défi du Boss — Bats le boss");
+var aAny = School.addAssignment(klass.code, { gameId: "any", goal: "correct", target: 30 });
+eq("an any-game assignment reads as a sentence", School.describe(aAny),
+  "N'importe quel jeu — 30 bonnes réponses");
+School.removeAssignment(klass.code, aAny.id);
 
 /* Goal checking: the gate between "played a game" and "did the homework". */
 function session(over) {
@@ -366,6 +370,15 @@ var sheet = School.roster(klass.code);
 check("the roster lists the student", sheet.length >= 1);
 eq("…with both assignments ticked", sheet[0].done, 2);
 check("a progress code from elsewhere is refused", !School.importProgress("CHOUP1.zzzz").ok);
+
+/* One student must never occupy two rows, whichever road their results take. */
+School.recordRoster(School.get(klass.code), student);          // local device
+School.importProgress(report);                                 // pasted code
+School.mergeCloudRoster(klass.code, [                          // sync service
+  { id: student.syncId || App.State.syncId(), name: "Camille", xp: 500, done: { d1: 10 }, at: Date.now() }
+]);
+var rows = School.roster(klass.code).filter(function (r) { return r.name === "Camille"; });
+eq("the same student is one row, not three", rows.length, 1);
 check("an invite code is not a progress code", !School.importProgress(invite).ok);
 
 /* ------------------------------------------------------------ report -- */

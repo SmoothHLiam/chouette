@@ -11,7 +11,9 @@ game.
 Teachers get a class code and can turn the mini-games into assignments.
 Students enter the code once and their homework shows up inside the game.
 
-No build step, no dependencies, no server, no network. Open the file and play.
+No build step and no dependencies. Open the file and play — and if you deploy
+the included Worker, students join a class by typing a six-character code on any
+device and their teacher's roster fills in by itself.
 
 ---
 
@@ -80,18 +82,75 @@ roster.
 
 ### Getting a class onto other devices
 
-There is no server, so a class travels as a code:
+**With sync switched on** (see *Deploying* below), there is nothing to it: write
+the six-character code on the board, students type it once on whatever device
+they have, and they appear on your roster — before they have played anything.
+Finished homework lands there on its own too.
+
+**Without a server**, a class still travels, just by hand:
 
 * **The short code** (`ZBK-S9U`) works for students on the same computer.
 * **The invite code** (`CHOU1.…`) carries the whole class — name, level and
   every assignment — so a student on any other device can join by pasting it.
-  Copy it from the dashboard and send it however you already talk to your class.
 * **Progress codes** (`CHOUP1.…`) go the other way: a student copies one from
-  their profile, you paste it into **Élèves → Coller des résultats**, and their
-  finished work lands in your roster.
+  their profile, you paste it into **Élèves → Coller des résultats**.
 
-Both directions are plain UTF-8 JSON in base64, so accented class names survive
-the trip.
+These remain the fallback whenever the network is down, so a dropped connection
+never means a stuck lesson. Both are plain UTF-8 JSON in base64, so accented
+class names survive the trip.
+
+---
+
+## Deploying (optional, for live classes)
+
+Everything above works offline. Sync adds one thing: short codes that work
+anywhere, and rosters that fill in by themselves.
+
+### On your own machine or the classroom network
+
+Already done — `npm start` serves the game *and* the sync API, storing classes
+in `.chouette-data.json` next to the project:
+
+```bash
+npm start            # http://localhost:8080
+```
+
+Students on the same Wi-Fi open `http://<your-ip>:8080` and join with the short
+code. Nothing leaves the building. The catch is that it only works while that
+machine is on and reachable, and some school networks stop devices talking to
+each other.
+
+### On Cloudflare (works from home too, free tier)
+
+```bash
+cd worker
+npx wrangler login
+npx wrangler kv namespace create CHOUETTE   # paste the printed id into wrangler.toml
+npx wrangler deploy
+```
+
+That single Worker serves the game *and* the API from one origin, so there is
+nothing to configure: open the URL it prints and everything works. If you host
+the game's files somewhere else instead (GitHub Pages, a school server), set
+`syncUrl` in `js/config.js` to the Worker's URL.
+
+### What is stored, and what is not
+
+| Stored on the server | Never stored |
+| --- | --- |
+| Class code, name, level, assignments | Passwords — there are none |
+| The teacher's display name | Email addresses |
+| A student's display name (a first name is enough) | Last names, unless typed in |
+| XP and which assignments are done | Answers, mistakes, or play history |
+| A random anonymous id per student | Anything identifying a device |
+
+The teacher's key is stored only as a SHA-256 hash and is never returned by the
+API; it lives on the teacher's device. Knowing a class code lets you see that
+class's assignments and add your own row — it is a classroom code, not a
+password — but reading the roster or editing the class needs that key.
+**Élèves → supprimer la classe** deletes the class and every student row under
+it. If any of that is more than your school is comfortable with, don't deploy
+the Worker: the app is fully usable without it.
 
 ---
 
@@ -179,7 +238,10 @@ asserts that no verb in the bank produces an empty or malformed form in any
 tense. It also covers the classroom layer: code formatting and collisions, every
 assignment goal against passing and failing sessions, invite/progress codes
 round-tripping accented names, and the rule that finishing homework pays exactly
-once — 10 400+ assertions in total.
+once — 10 400+ assertions in total. A second suite drives the sync API itself:
+token checks, that a teacher's key is never returned or stored in the clear,
+that a roster needs it, size caps, and that deleting a class takes its student
+rows with it.
 
 ---
 
@@ -187,6 +249,10 @@ once — 10 400+ assertions in total.
 
 ```
 index.html              every script tag, in load order
+worker/
+  api.mjs               the sync API: classes, assignments, rosters
+  index.mjs             Cloudflare entry point (KV-backed, serves the game too)
+  wrangler.toml         deploy config
 css/
   base.css              design tokens, the six themes, buttons, mascot, FX
   layout.css            level picker, home, results, shop, badges, profile
@@ -197,13 +263,16 @@ js/
   accounts.js           who is signed in; one profile per account
   shell.js              the frame every game runs in: timer, lives, combo, XP
   router.js  ui.js  audio.js  speech.js  fx.js
+  config.js             where the sync API lives (empty = same origin)
+  sync.js               optional, best-effort calls to that API
   data/                 vocab · verbs · sentences · grammar · quests ·
                         achievements · classroom (codes, assignments, rosters)
   games/                one file per mini-game
   screens/              role · signin · level · classcode · home · teacher ·
                         results · shop · badges · profile
-tests/run.js            content + conjugation test suite
-tools/serve.js          dependency-free static server for `npm start`
+tests/run.js            content, conjugation and classroom test suite
+tests/api.mjs           sync API test suite
+tools/serve.js          static files + the same sync API, for `npm start`
 ```
 
 A mini-game is a single object registered with `App.Games.register()`. It gets a

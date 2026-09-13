@@ -35,17 +35,39 @@
 
     form.addEventListener("submit", function (e) {
       e.preventDefault();
-      var result = App.School.joinByCode(input.value);
-      if (!result.ok) {
-        note.className = "join-note bad";
-        note.textContent = result.error;
-        App.Sound.wrong();
-        App.FX.shake(card);
+      var typed = input.value;
+      var local = App.School.joinByCode(typed);
+      if (local.ok) { arrive(local.klass); return; }
+
+      // Not on this device — ask the sync service before giving up.
+      if (App.Sync.available() && !/^CHOU/i.test(typed.trim())) {
+        note.className = "join-note";
+        note.textContent = "Recherche de la classe…";
+        submit.disabled = true;
+        App.Sync.fetchClass(typed).then(function (res) {
+          submit.disabled = false;
+          if (res.ok) { arrive(App.School.adoptCloud(res.class)); return; }
+          refuse(res.offline
+            ? "Serveur injoignable. Vérifie ta connexion, ou demande le code d'invitation complet."
+            : res.error || local.error);
+        });
         return;
       }
-      var klass = result.klass;
+      refuse(local.error);
+    });
+
+    function refuse(message) {
+      note.className = "join-note bad";
+      note.textContent = message;
+      App.Sound.wrong();
+      App.FX.shake(card);
+    }
+
+    function arrive(klass) {
       App.State.setClass(klass.code);
       App.School.recordRoster(klass, App.State.profile);
+      // Appear on the teacher's roster straight away, before playing anything.
+      if (klass.cloud) App.Sync.pushProgress(App.State.profile);
       App.Sound.win();
       App.FX.rain(50);
       App.UI.toast("Bienvenue dans « " + klass.name + " » !", "🎒", "good");
@@ -73,7 +95,7 @@
         return;
       }
       App.Router.go("home");
-    });
+    }
 
     wrap.appendChild(card);
 

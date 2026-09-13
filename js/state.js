@@ -36,6 +36,7 @@
       role: "student",
       name: "",
       classCode: null,
+      syncId: null,
       level: null,
       xp: 0,
       coins: 0,
@@ -174,6 +175,18 @@
 
     setLevel: function (level) { profile.level = level; save(); },
     setClass: function (code) { profile.classCode = code || null; save(); },
+
+    /** A stable, anonymous id so a student's roster row is theirs alone.
+     *  It is random — it carries no name, device or account information. */
+    syncId: function () {
+      if (!profile.syncId) {
+        profile.syncId = (global.crypto && global.crypto.randomUUID)
+          ? global.crypto.randomUUID()
+          : "s" + Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+        save();
+      }
+      return profile.syncId;
+    },
 
     addXP: addXP,
     addCoins: function (amount) { profile.coins += amount; },
