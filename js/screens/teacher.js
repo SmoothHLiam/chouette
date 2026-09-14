@@ -20,6 +20,7 @@
 
     if (!klass) {
       wrap.appendChild(emptyState());
+      wrap.appendChild(App.UI.navRow());
       host.appendChild(wrap);
       return;
     }
@@ -34,6 +35,10 @@
       "<strong>Essayer les jeux</strong><small>Joue toi-même pour voir ce que tes élèves vont rencontrer.</small></span>";
     preview.addEventListener("click", function () { App.Sound.click(); App.Router.go("home"); });
     wrap.appendChild(preview);
+
+    // Teachers earn XP and croissants too, and had no way to reach their
+    // profile or the settings from here except the avatar in the top bar.
+    wrap.appendChild(App.UI.navRow());
 
     host.appendChild(wrap);
 

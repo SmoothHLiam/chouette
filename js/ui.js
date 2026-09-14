@@ -132,6 +132,37 @@
     return box;
   }
 
+  /* The same shortcuts on the student home and the teacher dashboard, defined
+   * once so a fifth one is added in a single place. */
+  var NAV_LINKS = [
+    { icon: "🛍️", label: "Boutique", screen: "shop" },
+    { icon: "🏅", label: "Badges", screen: "badges" },
+    { icon: "📊", label: "Profil", screen: "profile" },
+    { icon: "⚙️", label: "Réglages", screen: "settings" }
+  ];
+
+  /** The screen a person considers "home": their dashboard, by role. */
+  function homeScreen() {
+    return App.State.profile.role === "teacher" ? "teacher" : "home";
+  }
+
+  /** Pass the screen you are already on to leave it out of the row. */
+  function navRow(exclude) {
+    var row = U.el("div", "action-row");
+    NAV_LINKS.forEach(function (link) {
+      if (link.screen === exclude) return;
+      var b = U.el("button", "mini-card");
+      b.appendChild(U.el("span", "mini-icon", link.icon));
+      b.appendChild(U.el("span", "mini-label", link.label));
+      b.addEventListener("click", function () {
+        App.Sound.click();
+        App.Router.go(link.screen);
+      });
+      row.appendChild(b);
+    });
+    return row;
+  }
+
   /** Best-effort clipboard copy — falls back to selecting the text for file://
    *  pages and older browsers, where the async clipboard API is unavailable. */
   function copy(text, label) {
@@ -167,6 +198,9 @@
     toast: toast,
     modal: modal,
     topBar: topBar,
+    navRow: navRow,
+    homeScreen: homeScreen,
+    navLinks: NAV_LINKS,
     progressRing: progressRing,
     copy: copy,
     applyTheme: applyTheme

@@ -6,7 +6,7 @@
 
   App.Router.register("profile", function (host) {
     var p = App.State.profile;
-    host.appendChild(App.UI.topBar({ back: "home" }));
+    host.appendChild(App.UI.topBar({ back: App.UI.homeScreen() }));
 
     var wrap = U.el("div", "profile");
     var rank = App.rankFor(p.xp);

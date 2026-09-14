@@ -6,7 +6,7 @@
 
   App.Router.register("shop", function (host) {
     var p = App.State.profile;
-    host.appendChild(App.UI.topBar({ back: "home" }));
+    host.appendChild(App.UI.topBar({ back: App.UI.homeScreen() }));
 
     var wrap = U.el("div", "shop");
     wrap.appendChild(U.el("h2", "page-title", "🛍️ La Boutique"));

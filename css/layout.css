@@ -265,7 +265,16 @@
 .wide-body small { color: var(--muted); font-size: 0.85rem; }
 .review-card { border-color: rgba(46, 230, 168, 0.35); }
 
-.action-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.action-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin-top: 4px;
+}
+/* Four labels get cramped on a small phone; two rows of two reads better. */
+@media (max-width: 380px) {
+  .action-row { grid-template-columns: repeat(2, 1fr); }
+}
 .mini-card {
   display: flex;
   flex-direction: column;

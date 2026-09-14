@@ -6,7 +6,7 @@
 
   App.Router.register("badges", function (host) {
     var p = App.State.profile;
-    host.appendChild(App.UI.topBar({ back: "home" }));
+    host.appendChild(App.UI.topBar({ back: App.UI.homeScreen() }));
 
     var wrap = U.el("div", "badges-page");
     wrap.appendChild(U.el("h2", "page-title", "🏅 Tes badges"));

@@ -121,19 +121,7 @@
     });
     actions.appendChild(review);
 
-    var row = U.el("div", "action-row");
-    [
-      { icon: "🛍️", label: "Boutique", screen: "shop" },
-      { icon: "🏅", label: "Badges", screen: "badges" },
-      { icon: "📊", label: "Profil", screen: "profile" },
-      { icon: "⚙️", label: "Réglages", screen: "settings" }
-    ].forEach(function (a) {
-      var b = U.el("button", "mini-card");
-      b.appendChild(U.el("span", "mini-icon", a.icon));
-      b.appendChild(U.el("span", "mini-label", a.label));
-      b.addEventListener("click", function () { App.Sound.click(); App.Router.go(a.screen); });
-      row.appendChild(b);
-    });
+    var row = App.UI.navRow();
     actions.appendChild(row);
     wrap.appendChild(actions);
 

@@ -6,7 +6,7 @@
 
   App.Router.register("settings", function (host) {
     var p = App.State.profile;
-    host.appendChild(App.UI.topBar({ back: p.role === "teacher" ? "teacher" : "home" }));
+    host.appendChild(App.UI.topBar({ back: App.UI.homeScreen() }));
 
     var wrap = U.el("div", "settings-page");
     wrap.appendChild(U.el("h2", "page-title", "⚙️ Réglages"));
