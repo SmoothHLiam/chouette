@@ -17,7 +17,7 @@
     minLevel: 1,
     mode: { type: "timer", duration: 90 },
     build: function (api) {
-      var pool = U.uniqueBy(App.Vocab.deck(api.level), function (v) { return v.fr; });
+      var pool = U.uniqueBy(App.Content.vocabDeck(api.level), function (v) { return v.fr; });
       var board = U.el("div", "memory-board");
       var banner = U.el("div", "memory-banner");
       api.stage.appendChild(banner);

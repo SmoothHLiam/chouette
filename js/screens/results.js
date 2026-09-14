@@ -19,7 +19,8 @@
     var head = U.el("div", "results-head");
     head.appendChild(U.el("div", "results-icon", praise.icon));
     head.appendChild(U.el("h2", null, praise.text));
-    head.appendChild(U.el("p", "results-sub", s.gameIcon + " " + s.gameName));
+    head.appendChild(U.el("p", "results-sub", s.gameIcon + " " + s.gameName +
+      (s.listName ? " · 📋 " + s.listName : "")));
     wrap.appendChild(head);
 
     var score = U.el("div", "results-score");

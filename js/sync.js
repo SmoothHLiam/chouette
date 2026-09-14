@@ -159,7 +159,8 @@
         name: klass.name,
         teacher: klass.teacher,
         level: klass.level,
-        assignments: klass.assignments || []
+        assignments: klass.assignments || [],
+        lists: klass.lists || []
       });
     },
 
@@ -170,7 +171,8 @@
         name: klass.name,
         teacher: klass.teacher,
         level: klass.level,
-        assignments: klass.assignments || []
+        assignments: klass.assignments || [],
+        lists: klass.lists || []
       });
     },
 

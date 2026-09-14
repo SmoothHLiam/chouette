@@ -25,6 +25,7 @@
     }
 
     wrap.appendChild(classCard(klass, owned));
+    wrap.appendChild(listsSection(klass));
     wrap.appendChild(assignmentsSection(klass));
     wrap.appendChild(rosterSection(klass));
 
@@ -192,6 +193,224 @@
       });
     }
 
+    /* ------------------------------------------------------- your content */
+    function listsSection(k) {
+      // Its own class: two sections that mean different things should not be
+      // indistinguishable in the DOM.
+      var box = U.el("section", "lists-section");
+      var head = U.el("div", "section-head");
+      head.appendChild(U.el("h3", null, "Tes listes"));
+      var add = U.el("button", "level-chip", "➕ Nouvelle liste");
+      add.addEventListener("click", function () { App.Sound.click(); listModal(k, null); });
+      head.appendChild(add);
+      box.appendChild(head);
+
+      var lists = App.Lists.all(k.code);
+      if (!lists.length) {
+        box.appendChild(U.el("p", "page-sub",
+          "Le jeu a déjà tout son vocabulaire intégré — ces listes servent à y " +
+          "ajouter le tien. Colle ta liste de la semaine et donne-la comme devoir."));
+        return box;
+      }
+
+      lists.forEach(function (list) {
+        var caps = App.Lists.capabilities(list);
+        var kind = App.Lists.KINDS.filter(function (x) { return x.id === list.kind; })[0];
+        var row = U.el("div", "assign-row");
+        row.appendChild(U.el("span", "assign-icon", kind ? kind.icon : "📋"));
+        var mid = U.el("div", "assign-mid");
+        mid.appendChild(U.el("strong", null, list.name));
+        var bits = [caps.total + (list.kind === "sentences" ? " phrases" : " mots")];
+        if (list.kind === "vocab" && caps.nouns) bits.push(caps.nouns + " avec le/la");
+        var playable = App.Lists.gamesFor(list).map(function (id) {
+          var g = App.Games.get(id);
+          return g ? g.icon : "";
+        }).join(" ");
+        if (playable) bits.push(playable);
+        mid.appendChild(U.el("small", null, bits.join("  ·  ")));
+        row.appendChild(mid);
+
+        var edit = U.el("button", "icon-btn", "✏️");
+        edit.title = "Modifier cette liste";
+        edit.addEventListener("click", function () { App.Sound.click(); listModal(k, list); });
+        row.appendChild(edit);
+
+        var del = U.el("button", "icon-btn", "🗑");
+        del.title = "Supprimer cette liste";
+        del.addEventListener("click", function () {
+          App.Sound.click();
+          var used = (k.assignments || []).filter(function (a) { return a.listId === list.id; }).length;
+          confirmModal({
+            title: "Supprimer « " + list.name + " » ?",
+            body: used
+              ? used + " devoir" + (used > 1 ? "s utilisent" : " utilise") + " cette liste. " +
+                "Ils continueront de fonctionner, mais sur le vocabulaire intégré du jeu."
+              : "Cette liste disparaîtra pour toi et pour tes élèves.",
+            confirm: "Supprimer",
+            onConfirm: function () {
+              App.Lists.remove(k.code, list.id);
+              publish(App.School.get(k.code));
+              App.Router.go("teacher");
+            }
+          });
+        });
+        row.appendChild(del);
+        box.appendChild(row);
+      });
+      return box;
+    }
+
+    /** Write or paste a list. The paste box is the point: a teacher should be
+     *  able to drop in the list they already have and be done. */
+    function listModal(k, existing) {
+      App.UI.modal(function (box, close) {
+        box.appendChild(U.el("h3", null, existing ? "Modifier la liste" : "Nouvelle liste"));
+
+        var name = U.el("input", "conj-input");
+        name.placeholder = "Chapitre 7 — la nourriture";
+        name.maxLength = App.Lists.LIMITS.name;
+        if (existing) name.value = existing.name;
+
+        var kindSel = U.el("select", "level-select");
+        App.Lists.KINDS.forEach(function (kind) {
+          var opt = U.el("option", null, kind.icon + "  " + kind.name);
+          opt.value = kind.id;
+          kindSel.appendChild(opt);
+        });
+        if (existing) kindSel.value = existing.kind;
+
+        var area = U.el("textarea", "code-area list-area");
+        area.rows = 9;
+        area.spellcheck = false;
+        if (existing) area.value = App.Lists.toText(existing);
+
+        var swap = U.el("button", "linkish", "↔ L'anglais est à gauche");
+        swap.type = "button";
+        var englishFirst = false;
+        swap.addEventListener("click", function () {
+          englishFirst = !englishFirst;
+          swap.textContent = englishFirst ? "↔ Le français est à gauche" : "↔ L'anglais est à gauche";
+          review();
+        });
+
+        var preview = U.el("div", "list-preview");
+
+        function placeholder() {
+          area.placeholder = kindSel.value === "sentences"
+            ? "J'ai un chien. = I have a dog.\nElle est ma sœur. = She is my sister."
+            : "le chien = dog\nla maison = house\nmanger = to eat\nl'eau (f) = water";
+        }
+
+        /* Live feedback: how many entries were understood, what was not, and
+         * which games the list can drive. */
+        function review() {
+          var parsed = App.Lists.parse(area.value, kindSel.value, englishFirst);
+          U.clear(preview);
+          var draft = { name: name.value, kind: kindSel.value, items: parsed.items };
+          var caps = App.Lists.capabilities(draft);
+
+          var summary = U.el("p", "list-summary");
+          summary.textContent = caps.total
+            ? caps.total + (kindSel.value === "sentences" ? " phrases lues" : " mots lus") +
+              (kindSel.value === "vocab" && caps.nouns ? " · " + caps.nouns + " avec le/la" : "")
+            : "Rien de lisible pour l'instant.";
+          preview.appendChild(summary);
+
+          if (parsed.items.length) {
+            var sample = U.el("div", "list-sample");
+            parsed.items.slice(0, 4).forEach(function (item) {
+              var chip = U.el("span", "list-chip");
+              var fr = kindSel.value === "vocab" && item.g
+                ? (item.g === "m" ? "le " : "la ") + item.fr
+                : item.fr;
+              chip.textContent = fr + " → " + item.en;
+              sample.appendChild(chip);
+            });
+            if (parsed.items.length > 4) {
+              sample.appendChild(U.el("span", "list-chip muted", "+" + (parsed.items.length - 4)));
+            }
+            preview.appendChild(sample);
+
+            var games = App.Lists.gamesFor(draft);
+            var line = U.el("small", "setting-hint");
+            line.textContent = games.length
+              ? "Jouable dans : " + games.map(function (id) {
+                  var g = App.Games.get(id);
+                  return g ? g.icon + " " + g.name : id;
+                }).join(", ")
+              : "Pas encore assez d'entrées pour un jeu (il en faut au moins 4).";
+            preview.appendChild(line);
+          }
+
+          if (parsed.problems.length) {
+            var warn = U.el("div", "list-problems");
+            warn.appendChild(U.el("strong", null,
+              parsed.problems.length + " ligne" + (parsed.problems.length > 1 ? "s" : "") + " ignorée" +
+              (parsed.problems.length > 1 ? "s" : "") + " :"));
+            parsed.problems.slice(0, 3).forEach(function (issue) {
+              warn.appendChild(U.el("small", null, "ligne " + issue.line + " — " + issue.why));
+            });
+            preview.appendChild(warn);
+          }
+        }
+
+        [["Nom de la liste", name], ["Type", kindSel]].forEach(function (pair) {
+          var field = U.el("label", "field");
+          field.appendChild(U.el("span", null, pair[0]));
+          field.appendChild(pair[1]);
+          box.appendChild(field);
+        });
+
+        var pasteField = U.el("label", "field");
+        var pasteHead = U.el("span", "field-head");
+        pasteHead.appendChild(U.el("span", null, "Ta liste"));
+        pasteHead.appendChild(swap);
+        pasteField.appendChild(pasteHead);
+        pasteField.appendChild(area);
+        pasteField.appendChild(U.el("small", "setting-hint",
+          "Une entrée par ligne, séparée par « = », une tabulation ou « ; ». " +
+          "Colle directement depuis un tableur. Écris « le » ou « la » pour que " +
+          "le jeu connaisse le genre."));
+        box.appendChild(pasteField);
+        box.appendChild(preview);
+
+        kindSel.addEventListener("change", function () { placeholder(); review(); });
+        area.addEventListener("input", review);
+        name.addEventListener("input", review);
+        placeholder();
+        review();
+
+        var row = U.el("div", "modal-actions");
+        row.appendChild(App.UI.bigButton("Annuler", { variant: "ghost", onClick: close }));
+        row.appendChild(App.UI.bigButton(existing ? "Enregistrer" : "Créer", {
+          onClick: function () {
+            var parsed = App.Lists.parse(area.value, kindSel.value, englishFirst);
+            if (!parsed.items.length) {
+              App.UI.toast("Ajoute au moins une entrée lisible.", "✏️");
+              return;
+            }
+            var saved = App.Lists.save(k.code, {
+              id: existing ? existing.id : null,
+              created: existing ? existing.created : null,
+              name: name.value.trim() || "Ma liste",
+              kind: kindSel.value,
+              items: parsed.items
+            });
+            if (!saved) {
+              App.UI.toast("Maximum " + App.Lists.LIMITS.lists + " listes par classe.", "⚠️");
+              return;
+            }
+            publish(App.School.get(k.code));
+            App.Sound.coin();
+            close();
+            App.Router.go("teacher");
+          }
+        }));
+        box.appendChild(row);
+        setTimeout(function () { (existing ? area : name).focus(); }, 100);
+      });
+    }
+
     /* ----------------------------------------------------- the assignments */
     function assignmentsSection(k) {
       var box = U.el("section", "assign-section");
@@ -260,11 +479,30 @@
         var anyOpt = U.el("option", null, "N'importe quel jeu");
         anyOpt.value = "any";
         gameSel.appendChild(anyOpt);
+        anyOpt.dataset.label = anyOpt.textContent;
         App.Games.playable().forEach(function (g) {
           var opt = U.el("option", null, g.icon + "  " + g.name);
           opt.value = g.id;
+          opt.dataset.label = opt.textContent;
           gameSel.appendChild(opt);
         });
+
+        /* Content first: the built-in bank, or one of the teacher's lists.
+         * Picking a list narrows the games to those it can actually drive. */
+        var listSel = U.el("select", "level-select");
+        function fillLists() {
+          U.clear(listSel);
+          var builtIn = U.el("option", null, "📚  Contenu intégré du jeu");
+          builtIn.value = "";
+          listSel.appendChild(builtIn);
+          App.Lists.all(k.code).forEach(function (list) {
+            var caps = App.Lists.capabilities(list);
+            var opt = U.el("option", null, "📋  " + list.name + " (" + caps.total + ")");
+            opt.value = list.id;
+            listSel.appendChild(opt);
+          });
+        }
+        fillLists();
 
         var goalSel = U.el("select", "level-select");
         App.School.GOALS.forEach(function (goal) {
@@ -296,7 +534,41 @@
         goalSel.addEventListener("change", syncTarget);
         syncTarget();
 
+        /* Games a chosen list cannot drive are disabled, with the reason on the
+         * option itself, rather than silently failing later. */
+        var listHint = U.el("small", "setting-hint");
+        function syncGames() {
+          var list = listSel.value ? App.Lists.get(k.code, listSel.value) : null;
+          Array.prototype.forEach.call(gameSel.options, function (opt) {
+            if (!list) { opt.disabled = false; opt.textContent = opt.dataset.label; return; }
+            if (opt.value === "any") {
+              opt.disabled = true;
+              opt.textContent = opt.dataset.label + " — pas avec une liste";
+              return;
+            }
+            var ok = App.Lists.supports(list, opt.value);
+            opt.disabled = !ok;
+            opt.textContent = ok ? opt.dataset.label
+              : opt.dataset.label + " — " + App.Lists.whyNot(list, opt.value);
+          });
+          if (!list) {
+            listHint.textContent = "Le vocabulaire et les phrases livrés avec le jeu.";
+          } else {
+            var playable = App.Lists.gamesFor(list);
+            listHint.textContent = playable.length
+              ? "Cette liste marche avec " + playable.length + " jeu" + (playable.length > 1 ? "x" : "") + "."
+              : "Cette liste n'a pas encore assez d'entrées pour un jeu.";
+            if (gameSel.selectedOptions[0] && gameSel.selectedOptions[0].disabled) {
+              for (var i = 0; i < gameSel.options.length; i++) {
+                if (!gameSel.options[i].disabled) { gameSel.selectedIndex = i; break; }
+              }
+            }
+          }
+        }
+        listSel.addEventListener("change", syncGames);
+
         if (existing) {
+          listSel.value = existing.listId || "";
           gameSel.value = existing.gameId;
           goalSel.value = existing.goal;
           syncTarget();
@@ -305,13 +577,15 @@
           note.value = existing.note || "";
         }
 
-        [["Jeu", gameSel], ["Objectif", goalSel], ["Valeur", target],
+        [["Contenu", listSel], ["Jeu", gameSel], ["Objectif", goalSel], ["Valeur", target],
          ["À rendre pour", due], ["Consigne", note]].forEach(function (pair) {
           var field = U.el("label", "field");
           field.appendChild(U.el("span", null, pair[0]));
           field.appendChild(pair[1]);
           box.appendChild(field);
+          if (pair[1] === listSel) box.appendChild(listHint);
         });
+        syncGames();
 
         if (existing) {
           box.appendChild(U.el("p", "class-hint",
@@ -328,7 +602,8 @@
               goal: goalSel.value,
               target: parseInt(target.value, 10) || 0,
               due: due.value || null,
-              note: note.value.trim()
+              note: note.value.trim(),
+              listId: listSel.value || null
             };
             if (existing) App.School.updateAssignment(k.code, existing.id, payload);
             else App.School.addAssignment(k.code, payload);
@@ -409,6 +684,10 @@
 
     function assignmentMeta(code, a) {
       var meta = [];
+      if (a.listId) {
+        var list = App.Lists.get(code, a.listId);
+        meta.push("📋 " + (list ? list.name : "liste supprimée — contenu intégré"));
+      }
       var due = App.School.dueLabel(a);
       if (due) meta.push("📅 " + due);
       var n = doneCount(code, a.id);

@@ -40,6 +40,8 @@
     }
 
     wrap.appendChild(wordOfTheDay());
+    var listPractice = classLists();
+    if (listPractice) wrap.appendChild(listPractice);
 
     /* ------------------------------------------------------ the missions -- */
     var quests = App.Quests.today();
@@ -137,6 +139,64 @@
 
     host.appendChild(wrap);
 
+    /** The teacher's own lists, free to practise outside of homework. */
+    function classLists() {
+      if (p.role === "teacher" || !p.classCode) return null;
+      var lists = App.Lists.all(p.classCode).filter(function (l) {
+        return App.Lists.gamesFor(l).length > 0;
+      });
+      if (!lists.length) return null;
+
+      var box = U.el("section", "class-lists");
+      var head = U.el("div", "section-head");
+      head.appendChild(U.el("h3", null, "Les listes de ta classe"));
+      head.appendChild(U.el("span", "section-note", "entraînement libre"));
+      box.appendChild(head);
+
+      lists.forEach(function (list) {
+        var caps = App.Lists.capabilities(list);
+        var games = App.Lists.gamesFor(list);
+        var row = U.el("div", "assign-row");
+        row.appendChild(U.el("span", "assign-icon", list.kind === "sentences" ? "💬" : "🔤"));
+        var mid = U.el("div", "assign-mid");
+        mid.appendChild(U.el("strong", null, list.name));
+        mid.appendChild(U.el("small", null,
+          caps.total + (list.kind === "sentences" ? " phrases" : " mots") +
+          "  ·  " + games.length + " jeu" + (games.length > 1 ? "x" : "")));
+        row.appendChild(mid);
+
+        var go = U.el("button", "icon-btn", "▶");
+        go.title = "S'entraîner sur cette liste";
+        go.setAttribute("aria-label", "S'entraîner sur " + list.name);
+        go.addEventListener("click", function () {
+          App.Sound.click();
+          App.UI.modal(function (modalBox, close) {
+            modalBox.appendChild(U.el("h3", null, list.name));
+            modalBox.appendChild(U.el("p", null, "Choisis un jeu pour t'entraîner :"));
+            var choices = U.el("div", "list-game-grid");
+            games.forEach(function (id) {
+              var g = App.Games.get(id);
+              var pick = U.el("button", "mini-card");
+              pick.appendChild(U.el("span", "mini-icon", g.icon));
+              pick.appendChild(U.el("span", "mini-label", g.name));
+              pick.addEventListener("click", function () {
+                close();
+                App.Router.go("play", { id: id, listId: list.id });
+              });
+              choices.appendChild(pick);
+            });
+            modalBox.appendChild(choices);
+            var row2 = U.el("div", "modal-actions");
+            row2.appendChild(App.UI.bigButton("Annuler", { variant: "ghost", onClick: close }));
+            modalBox.appendChild(row2);
+          });
+        });
+        row.appendChild(go);
+        box.appendChild(row);
+      });
+      return box;
+    }
+
     /** One word a day, the same one for everyone at this level, so a class can
      *  actually talk about it. */
     function wordOfTheDay() {
@@ -198,6 +258,8 @@
         var mid = U.el("div", "assign-mid");
         mid.appendChild(U.el("strong", null, App.School.describe(a)));
         var meta = [];
+        var assignedList = a.listId ? App.Lists.get(status.klass.code, a.listId) : null;
+        if (assignedList) meta.push("📋 " + assignedList.name);
         var due = App.School.dueLabel(a);
         if (due) meta.push("📅 " + due);
         if (a.note) meta.push("💬 " + a.note);
@@ -213,7 +275,7 @@
             App.UI.toast("Choisis le jeu que tu veux dans la salle de jeux.", "🕹️");
             return;
           }
-          App.Router.go("play", { id: a.gameId });
+          App.Router.go("play", { id: a.gameId, listId: a.listId || null });
         });
         box.appendChild(row);
       });

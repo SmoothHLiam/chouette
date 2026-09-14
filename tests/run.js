@@ -21,6 +21,7 @@ require("../js/games/ecoute.js");
 require("../js/games/memoire.js");
 require("../js/games/boss.js");
 require("../js/data/classroom.js");
+require("../js/data/lists.js");
 
 var App = globalThis.App;
 var V = App.Vocab, Verbs = App.Verbs, S = App.Sentences, G = App.Grammar;
@@ -407,6 +408,133 @@ School.mergeCloudRoster(klass.code, [                          // sync service
 var rows = School.roster(klass.code).filter(function (r) { return r.name === "Camille"; });
 eq("the same student is one row, not three", rows.length, 1);
 check("an invite code is not a progress code", !School.importProgress(invite).ok);
+
+/* ----------------------------------------------- teacher-made lists ---- */
+var Lists = App.Lists;
+
+/* The paste box is the feature: whatever a teacher already has must survive. */
+var pasted = Lists.parse([
+  "le chien = dog",
+  "la maison = house",
+  "manger = to eat",
+  "l'eau (f) = water",
+  "les gens = people",
+  "une pomme = an apple",
+  "le café\tcoffee",              // straight from a spreadsheet
+  "la fenêtre ; window",
+  "le stylo - pen",
+  "",
+  "# une remarque ignorée",
+  "ligne sans separateur"
+].join("\n"), "vocab", false);
+
+eq("every readable line becomes an entry", pasted.items.length, 9);
+eq("a line with no separator is reported", pasted.problems.length, 1);
+eq("…by line number", pasted.problems[0].line, 12);
+
+function entry(fr) {
+  return pasted.items.filter(function (i) { return i.fr === fr; })[0];
+}
+eq("« le » gives a masculine noun", entry("chien").g, "m");
+eq("« la » gives a feminine noun", entry("maison").g, "f");
+eq("…and the article is stripped", entry("maison").fr, "maison");
+check("a bare verb keeps no gender", entry("manger").g === null);
+eq("« l' » hides the gender, so the (f) marker supplies it", entry("eau").g, "f");
+check("« les » does not invent a gender", entry("gens").g === null);
+eq("« une » gives feminine", entry("pomme").g, "f");
+eq("a tab separates", entry("café").en, "coffee");
+eq("a semicolon separates", entry("fenêtre").en, "window");
+eq("a spaced dash separates", entry("stylo").en, "pen");
+check("blank lines are skipped", !entry(""));
+check("# comments are skipped", pasted.items.every(function (i) { return i.fr.charAt(0) !== "#"; }));
+
+var reversed = Lists.parse("dog = le chien\nhouse = la maison", "vocab", true);
+eq("English-first is understood", reversed.items[0].fr, "chien");
+eq("…with the gender still read", reversed.items[0].g, "m");
+eq("…and the English kept", reversed.items[0].en, "dog");
+
+var sentenceList = Lists.parse("J'ai un chien. = I have a dog.\nElle est ma sœur. = She is my sister.",
+  "sentences", false);
+eq("sentences are read whole", sentenceList.items.length, 2);
+eq("…keeping punctuation and case", sentenceList.items[0].fr, "J'ai un chien.");
+check("…and no article is stripped from a sentence", sentenceList.items[1].fr.indexOf("Elle est") === 0);
+
+/* A list has to be reopenable: text in, text out. */
+var roundTrip = { name: "Test", kind: "vocab", items: pasted.items };
+var again = Lists.parse(Lists.toText(roundTrip), "vocab", false);
+eq("a list survives a round trip through the editor", again.items.length, pasted.items.length);
+eq("…genders included", again.items.filter(function (i) { return i.g; }).length,
+  pasted.items.filter(function (i) { return i.g; }).length);
+
+/* Which games a list can actually drive. */
+var wordList = { name: "Mots", kind: "vocab", items: pasted.items };
+var caps = Lists.capabilities(wordList);
+eq("nouns are counted", caps.nouns, 7);   // chien, maison, eau, pomme, café, fenêtre, stylo
+check("accented words are counted", caps.accented >= 2, String(caps.accented));
+check("a word list drives the translation sprint", Lists.supports(wordList, "eclair"));
+check("…and the memory grid", Lists.supports(wordList, "memoire"));
+check("…and the gender duel, having enough nouns", Lists.supports(wordList, "genre"));
+check("…but never the phrase builder", !Lists.supports(wordList, "phrase"));
+check("…nor conjugation, which the verb engine drives", !Lists.supports(wordList, "conjugaison"));
+
+var tiny = { name: "Court", kind: "vocab", items: pasted.items.slice(0, 2) };
+check("a two-word list drives nothing", Lists.gamesFor(tiny).length === 0);
+check("…and says why", /au moins/.test(Lists.whyNot(tiny, "eclair")));
+
+var genderless = { name: "Verbes", kind: "vocab",
+  items: [{ fr: "manger", en: "to eat", g: null }, { fr: "boire", en: "to drink", g: null },
+          { fr: "parler", en: "to speak", g: null }, { fr: "courir", en: "to run", g: null }] };
+check("a list with no nouns cannot drive the gender duel", !Lists.supports(genderless, "genre"));
+check("…and explains that it needs le/la", /le\/la/.test(Lists.whyNot(genderless, "genre")));
+check("…but still drives the translation sprint", Lists.supports(genderless, "eclair"));
+
+var sentences = { name: "Phrases", kind: "sentences", items: sentenceList.items.concat(sentenceList.items) };
+check("a sentence list drives the phrase builder", Lists.supports(sentences, "phrase"));
+check("…and listening", Lists.supports(sentences, "ecoute"));
+check("…but not the gender duel", !Lists.supports(sentences, "genre"));
+
+/* Custom items must be indistinguishable from the built-in bank downstream. */
+var asVocab = Lists.asVocab(wordList);
+eq("custom words carry an article like built-in nouns", App.Vocab.display(asVocab[0]), "le chien");
+check("…and a genderless entry is shown bare",
+  App.Vocab.display(Lists.asVocab(genderless)[0]) === "manger");
+check("…and every item has the fields games rely on",
+  asVocab.every(function (i) { return i.fr && i.en && i.t && "g" in i; }));
+
+/* Storage on the class, and what happens when a list is deleted. */
+var listClass = School.createClass({ name: "Listes", level: 2 });
+var saved = Lists.save(listClass.code, { name: "Chapitre 7", kind: "vocab", items: pasted.items });
+check("a list is saved to its class", !!saved && !!saved.id);
+eq("…and read back", Lists.all(listClass.code).length, 1);
+eq("…by id", Lists.get(listClass.code, saved.id).name, "Chapitre 7");
+
+var edited = Lists.save(listClass.code, { id: saved.id, name: "Chapitre 8", kind: "vocab", items: pasted.items });
+eq("editing keeps the same id", edited.id, saved.id);
+eq("…and does not add a second list", Lists.all(listClass.code).length, 1);
+eq("…with the new name", Lists.get(listClass.code, saved.id).name, "Chapitre 8");
+
+var withList = School.addAssignment(listClass.code, { gameId: "eclair", goal: "correct", target: 10, listId: saved.id });
+eq("an assignment can point at a list", withList.listId, saved.id);
+var plain = School.addAssignment(listClass.code, { gameId: "eclair", goal: "correct", target: 10 });
+check("…and an assignment without one still uses the built-in bank", !plain.listId);
+
+check("deleting a list reports success", Lists.remove(listClass.code, saved.id) === true);
+eq("…the list is gone", Lists.all(listClass.code).length, 0);
+check("…and the assignment falls back rather than breaking",
+  !School.get(listClass.code).assignments.filter(function (a) { return a.id === withList.id; })[0].listId);
+
+/* Lists travel with the class, both ways. */
+var listInvite = School.shareCode(listClass.code);
+Lists.save(listClass.code, { name: "Voyage", kind: "sentences", items: sentenceList.items });
+var travelInvite = School.shareCode(listClass.code);
+School.removeClass(listClass.code);
+var landed = School.importShare(travelInvite);
+check("an invite code carries the lists", landed.ok, landed.error);
+eq("…with the list intact", Lists.all(landed.klass.code).length, 1);
+eq("…its name", Lists.all(landed.klass.code)[0].name, "Voyage");
+eq("…and its entries", Lists.all(landed.klass.code)[0].items.length, sentenceList.items.length);
+check("…including accented text", /sœur/.test(JSON.stringify(Lists.all(landed.klass.code)[0].items)));
+check("an older invite code without lists still works", School.importShare(listInvite).ok);
 
 /* ------------------------------------------------------------ report -- */
 console.log("Chouette ! — test suite");

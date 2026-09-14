@@ -57,7 +57,7 @@
     minLevel: 1,
     mode: { type: "timer", duration: 50 },
     build: function (api) {
-      var pool = U.uniqueBy(App.Vocab.upTo(api.level), function (v) { return v.fr; })
+      var pool = U.uniqueBy(App.Content.vocabAll(api.level), function (v) { return v.fr; })
         .filter(function (v) { return hasAccent(v.fr); });
       if (pool.length < 6) {
         pool = U.uniqueBy(App.Vocab.upTo(5), function (v) { return v.fr; })

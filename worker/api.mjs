@@ -26,7 +26,10 @@ const LIMITS = {
   assignments: 60,
   note: 120,
   studentName: 40,
-  done: 200
+  done: 200,
+  lists: 20,
+  listItems: 200,
+  listField: 120
 };
 
 /* ----------------------------------------------------------------- utils -- */
@@ -94,8 +97,32 @@ function sanitizeAssignments(list) {
     goal: clean(a.goal, 20),
     target: Number.isFinite(+a.target) ? Math.max(0, Math.min(+a.target, 1e6)) : 0,
     due: a.due ? clean(a.due, 10) : null,
-    note: clean(a.note, LIMITS.note)
+    note: clean(a.note, LIMITS.note),
+    listId: a.listId ? clean(a.listId, 40) : null
   }));
+}
+
+/* A teacher's own word and sentence lists, kept to sane sizes. */
+function sanitizeLists(lists) {
+  if (!Array.isArray(lists)) return [];
+  return lists.slice(0, LIMITS.lists).map((l) => {
+    const kind = l.kind === "sentences" ? "sentences" : "vocab";
+    return {
+      id: clean(l.id, 40) || "l" + Math.random().toString(36).slice(2, 10),
+      name: clean(l.name, LIMITS.name) || "Ma liste",
+      kind,
+      items: (Array.isArray(l.items) ? l.items : []).slice(0, LIMITS.listItems).map((item) => {
+        const row = {
+          fr: clean(item.fr, LIMITS.listField),
+          en: clean(item.en, LIMITS.listField)
+        };
+        if (kind === "vocab") row.g = item.g === "m" || item.g === "f" ? item.g : null;
+        return row;
+      }).filter((item) => item.fr && item.en),
+      created: Number.isFinite(+l.created) ? +l.created : Date.now(),
+      edited: Date.now()
+    };
+  });
 }
 
 function publicClass(klass) {
@@ -105,6 +132,7 @@ function publicClass(klass) {
     teacher: klass.teacher,
     level: klass.level,
     assignments: klass.assignments,
+    lists: klass.lists || [],
     updatedAt: klass.updatedAt
   };
 }
@@ -158,6 +186,7 @@ export async function handleApi(request, store) {
       teacher,
       level,
       assignments: sanitizeAssignments(data.assignments),
+      lists: sanitizeLists(data.lists),
       tokenHash: await sha256(token),
       createdAt: Date.now(),
       updatedAt: Date.now()
@@ -217,6 +246,7 @@ export async function handleApi(request, store) {
       klass.teacher = clean(data.teacher, LIMITS.teacher);
       klass.level = Math.min(Math.max(parseInt(data.level, 10) || klass.level, 1), 5);
       klass.assignments = sanitizeAssignments(data.assignments);
+      klass.lists = sanitizeLists(data.lists);
       klass.updatedAt = Date.now();
       await store.put("class:" + code, klass);
       return json({ ok: true, class: publicClass(klass) });

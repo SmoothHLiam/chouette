@@ -615,7 +615,7 @@
 .homework.has-late .section-head h3::after {
   content: " ⏰";
 }
-.assign-section, .roster-section { margin-bottom: 22px; }
+.assign-section, .lists-section, .roster-section { margin-bottom: 22px; }
 
 .assign-row {
   display: flex;
@@ -840,3 +840,63 @@ html[data-skin="minimal"] .theme-dot.active {
   border-color: var(--accent);
   box-shadow: 0 0 0 2px rgba(62, 91, 71, 0.18);
 }
+
+/* The list a session is running on, shown next to the game's name. */
+.play-title-names { display: flex; flex-direction: column; min-width: 0; line-height: 1.15; }
+.play-list-tag {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--gold);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---------------------------------------------------- listes du prof ----- */
+
+.list-area { min-height: 160px; font-size: 0.9rem; line-height: 1.5; margin-bottom: 0; }
+.field-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.field-head .linkish { padding: 0; font-size: 0.78rem; }
+
+.list-preview {
+  border: 1px dashed var(--panel-line);
+  border-radius: var(--radius);
+  padding: 12px;
+  margin-bottom: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.list-summary { margin: 0; font-weight: 700; font-size: 0.9rem; }
+.list-sample { display: flex; flex-wrap: wrap; gap: 6px; }
+.list-chip {
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--panel-line);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+.list-chip.muted { color: var(--muted); }
+.list-problems {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(255, 92, 122, 0.12);
+  border: 1px solid rgba(255, 92, 122, 0.35);
+  font-size: 0.78rem;
+}
+.list-problems strong { font-size: 0.8rem; }
+.list-game-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.class-lists .assign-row { margin-bottom: 8px; }
+
+html[data-skin="minimal"] .list-chip { background: #f3f5f1; border-color: #dfe2dc; }
+html[data-skin="minimal"] .list-preview { border-color: #d3d8d1; }
+html[data-skin="minimal"] .list-problems { background: #faeeee; border-color: #e3c3bf; color: #8d3d35; }

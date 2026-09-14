@@ -80,6 +80,38 @@ roster.
    student finishes a round — nothing to mark, and it only ever pays out once.
 3. **Watch the roster.** Students on the same device appear automatically.
 
+### Your own word lists
+
+The vocabulary, sentences and grammar that ship with the game stay exactly as
+they are — they are the default for every assignment. **Tes listes** on the
+dashboard adds your own on top, without touching a file or redeploying
+anything.
+
+Paste the list you already have, one entry per line:
+
+```
+le chien = dog
+la maison = house
+l'eau (f) = water
+manger = to eat
+```
+
+Separate the two halves with `=`, a tab (so a column pasted straight out of a
+spreadsheet works), or `;`. Write `le`/`la`/`un`/`une` and the game learns the
+gender, which is what lets a list drive **Duel Le / La**; `l'` hides it, so add
+`(m)` or `(f)`. There is a switch for lists written English-first. As you type,
+the editor shows what it read, names any line it could not, and lists the games
+your list can drive.
+
+Lists can also hold whole sentences, for **Construis la Phrase** and listening.
+
+When you set an assignment, **Contenu** chooses between the built-in bank and
+one of your lists. Games a list cannot drive are disabled with the reason
+attached — a word list will not run the phrase builder, and a list without
+genders will not run the gender duel. Students can also practise any of the
+class's lists freely from their home screen, and lists travel with the class
+through both sync and invite codes.
+
 ### Getting a class onto other devices
 
 **With sync switched on** (see *Deploying* below), there is nothing to it: write

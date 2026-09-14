@@ -136,6 +136,7 @@
       cloud: !!opts.cloud,  // it is published, so students anywhere can join
       token: opts.token || null,  // the teacher's key; never leaves this device
       assignments: [],
+      lists: [],
       roster: {}
     };
     school.classes[normalizeCode(klass.code)] = klass;
@@ -161,6 +162,7 @@
       target: Number(data.target) || 0,
       due: data.due || null,
       note: String(data.note || "").slice(0, 120),
+      listId: data.listId || null,
       created: Date.now()
     };
     klass.assignments.push(assignment);
@@ -184,6 +186,7 @@
         target: Number(data.target) || 0,
         due: data.due || null,
         note: String(data.note || "").slice(0, 120),
+        listId: data.listId || null,
         created: a.created,
         edited: Date.now()
       };
@@ -342,7 +345,10 @@
       t: klass.teacher,
       l: klass.level,
       a: klass.assignments.map(function (a) {
-        return { i: a.id, g: a.gameId, o: a.goal, t: a.target, d: a.due, m: a.note };
+        return { i: a.id, g: a.gameId, o: a.goal, t: a.target, d: a.due, m: a.note, l: a.listId || null };
+      }),
+      w: (klass.lists || []).map(function (l) {
+        return { i: l.id, n: l.name, k: l.kind, x: l.items };
       })
     }));
   }
@@ -387,7 +393,13 @@
       created: existing ? existing.created : Date.now(),
       owned: existing ? existing.owned : false,
       assignments: (data.a || []).map(function (a) {
-        return { id: a.i, gameId: a.g, goal: a.o, target: a.t, due: a.d, note: a.m, created: Date.now() };
+        return {
+          id: a.i, gameId: a.g, goal: a.o, target: a.t, due: a.d, note: a.m,
+          listId: a.l || null, created: Date.now()
+        };
+      }),
+      lists: (data.w || []).map(function (l) {
+        return { id: l.i, name: l.n, kind: l.k, items: l.x || [], created: Date.now(), edited: Date.now() };
       }),
       roster: existing ? existing.roster : {}
     };
@@ -428,9 +440,13 @@
   /** A fingerprint of everything a student would notice changing. */
   function signature(klass) {
     if (!klass) return "";
-    return [klass.name, klass.level].concat((klass.assignments || []).map(function (a) {
-      return [a.id, a.gameId, a.goal, a.target, a.due || "", a.note || ""].join("|");
-    }).sort()).join("\u00a7");
+    var assignments = (klass.assignments || []).map(function (a) {
+      return [a.id, a.gameId, a.goal, a.target, a.due || "", a.note || "", a.listId || ""].join("|");
+    }).sort();
+    var lists = (klass.lists || []).map(function (l) {
+      return [l.id, l.name, l.kind, (l.items || []).length, l.edited || 0].join("|");
+    }).sort();
+    return [klass.name, klass.level].concat(assignments, ["--"], lists).join("\u00a7");
   }
 
   /** Stores a class fetched from the sync service. */
@@ -448,7 +464,13 @@
       assignments: (data.assignments || []).map(function (a) {
         return {
           id: a.id, gameId: a.gameId, goal: a.goal, target: a.target,
-          due: a.due, note: a.note, created: Date.now()
+          due: a.due, note: a.note, listId: a.listId || null, created: Date.now()
+        };
+      }),
+      lists: (data.lists || []).map(function (l) {
+        return {
+          id: l.id, name: l.name, kind: l.kind,
+          items: l.items || [], created: l.created || Date.now(), edited: l.edited || Date.now()
         };
       }),
       roster: existing ? existing.roster : {}
@@ -543,6 +565,7 @@
     importProgress: importProgress,
     roster: roster,
     pretty: pretty,
+    put: put,
     normalizeCode: normalizeCode,
     progressKey: progressKey
   };

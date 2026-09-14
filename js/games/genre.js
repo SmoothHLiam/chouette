@@ -15,7 +15,7 @@
     minLevel: 1,
     mode: { type: "timer", duration: 45 },
     build: function (api) {
-      var nouns = U.uniqueBy(App.Vocab.deck(api.level, { nounsOnly: true }), function (v) { return v.fr; });
+      var nouns = U.uniqueBy(App.Content.vocabDeck(api.level, { nounsOnly: true }), function (v) { return v.fr; });
       var feed = K.cycler(nouns);
       var current = null, locked = false;
 

@@ -26,10 +26,21 @@
 
   var active = null;
 
-  function play(root, gameId) {
+  function play(root, gameId, params) {
     var def = App.Games.get(gameId);
     if (!def) { App.Router.go("home"); return; }
     var level = App.State.profile.level || 1;
+    params = params || {};
+
+    /* A teacher's list drives this session only; without one the game uses the
+     * built-in bank exactly as it always has. */
+    App.Content.clear();
+    var list = null;
+    if (params.listId && App.State.profile.classCode) {
+      list = App.Lists.get(App.State.profile.classCode, params.listId);
+      if (list && App.Lists.supports(list, gameId)) App.Content.use(list);
+      else list = null;
+    }
 
     U.clear(root);
     var wrap = U.el("div", "play-wrap theme-" + (def.color || "blue"));
@@ -41,7 +52,10 @@
     quit.setAttribute("aria-label", "Quitter la partie");
     var title = U.el("div", "play-title");
     title.appendChild(U.el("span", "play-title-icon", def.icon));
-    title.appendChild(U.el("span", null, def.name));
+    var names = U.el("span", "play-title-names");
+    names.appendChild(U.el("span", null, def.name));
+    if (list) names.appendChild(U.el("small", "play-list-tag", "📋 " + list.name));
+    title.appendChild(names);
     var lifeBox = U.el("div", "play-lives");
     var scoreBox = U.el("div", "play-score");
     scoreBox.innerHTML = '<span class="play-score-value">0</span><span class="play-score-label">points</span>';
@@ -211,12 +225,15 @@
       if (ticker) clearInterval(ticker);
       if (instance && instance.destroy) { try { instance.destroy(); } catch (e) { /* ignore */ } }
       App.Speech.stop();
+      App.Content.clear();
       active = null;
 
       var total = state.correct + state.wrong;
       var summary = {
         gameId: def.id,
         gameName: def.name,
+        listId: list ? list.id : null,
+        listName: list ? list.name : null,
         gameIcon: def.icon,
         correct: state.correct,
         wrong: state.wrong,
@@ -275,6 +292,7 @@
         if (ticker) clearInterval(ticker);
         if (instance && instance.destroy) instance.destroy();
         App.Speech.stop();
+        App.Content.clear();
         App.Router.go("home");
         return;
       }
@@ -291,6 +309,8 @@
     play: play,
     teardown: function () {
       if (active && active.destroy) active.destroy();
+      // Belt and braces: no list may leak into whatever is played next.
+      App.Content.clear();
       active = null;
     }
   };

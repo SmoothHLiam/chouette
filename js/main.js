@@ -4,7 +4,7 @@
   var App = global.App;
 
   App.Router.register("play", function (host, params) {
-    App.Shell.play(host, params.id);
+    App.Shell.play(host, params.id, params);
   });
 
   function boot() {

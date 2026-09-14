@@ -7,7 +7,7 @@
 
   function buildRunner(api, deck, label) {
     var pool = U.uniqueBy(deck, function (v) { return v.fr; });
-    if (pool.length < 4) pool = U.uniqueBy(App.Vocab.upTo(api.level), function (v) { return v.fr; });
+    if (pool.length < 4) pool = U.uniqueBy(App.Content.vocabAll(api.level), function (v) { return v.fr; });
     var feed = K.cycler(pool);
     var current = null, live = null;
     var toFrench = true;
@@ -53,7 +53,8 @@
     minLevel: 1,
     mode: { type: "timer", duration: 70 },
     build: function (api) {
-      return buildRunner(api, App.Vocab.deck(api.level), "Éclair");
+      return buildRunner(api, App.Content.vocabDeck(api.level),
+        App.Content.label() || "Éclair");
     }
   });
 

@@ -15,8 +15,8 @@
     minLevel: 1,
     mode: { type: "rounds", rounds: 8 },
     build: function (api) {
-      var deck = App.Sentences.deck(api.level);
-      var pool = App.Sentences.wordPool(api.level);
+      var deck = App.Content.sentenceDeck(api.level);
+      var pool = App.Content.sentenceWordPool(api.level);
       var feed = K.cycler(deck);
       var current = null, chosen = [], locked = false;
 

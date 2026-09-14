@@ -21,8 +21,8 @@
       function voiced() {
         return App.Speech.ready() && App.State.profile.voice !== false;
       }
-      var words = U.uniqueBy(App.Vocab.deck(api.level), function (v) { return v.fr; });
-      var sentences = App.Sentences.deck(api.level);
+      var words = U.uniqueBy(App.Content.vocabDeck(api.level), function (v) { return v.fr; });
+      var sentences = App.Content.sentenceDeck(api.level);
       var wordFeed = K.cycler(words);
       var sentenceFeed = K.cycler(sentences);
       var live = null;
@@ -53,7 +53,10 @@
       }
 
       function ask() {
-        var useSentence = api.level >= 2 && Math.random() < 0.45 && sentences.length > 3;
+        var listKind = App.Content.active() ? App.Content.active().kind : null;
+        var sentencesAllowed = listKind !== "vocab";     // a word list has none
+        var useSentence = sentencesAllowed && api.level >= 2 &&
+          Math.random() < 0.45 && sentences.length > 3;
         var item, spoken, options, tag, hintText;
 
         if (useSentence) {

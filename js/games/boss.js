@@ -29,7 +29,7 @@
       var maxHp = 100 + api.level * 20;
       var hp = maxHp;
 
-      var vocab = U.uniqueBy(App.Vocab.deck(api.level), function (v) { return v.fr; });
+      var vocab = U.uniqueBy(App.Content.vocabDeck(api.level), function (v) { return v.fr; });
       var verbs = App.Verbs.forLevel(api.level);
       var tenses = App.Verbs.tensesForLevel(api.level);
       var grammar = App.Grammar.deck(api.level);
