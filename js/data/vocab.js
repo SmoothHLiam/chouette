@@ -1,5 +1,7 @@
 /* Chouette ! — Vocabulary bank
- * Each entry: { fr, en, g: "m"|"f"|null, t: type, c: category }
+ * Each entry: { fr, en, g: "m"|"f"|null, t: type, c: category, pl? }
+ *   pl: plural-only in French ("les devoirs") — it takes "les" whatever its
+ *       gender, so it never appears in the le/la game.
  *   t: "n" noun · "v" verb (infinitive) · "a" adjective · "e" expression
  * Nouns are stored WITHOUT their article so the gender games can hide it.
  */
@@ -23,7 +25,7 @@
       { fr: "sac à dos", en: "backpack", g: "m", t: "n", c: "classe" },
       { fr: "ordinateur", en: "computer", g: "m", t: "n", c: "classe" },
       { fr: "école", en: "school", g: "f", t: "n", c: "classe" },
-      { fr: "devoirs", en: "homework", g: "m", t: "n", c: "classe" },
+      { fr: "devoirs", en: "homework", g: "m", pl: true, t: "n", c: "classe" },
       // --- La famille ---
       { fr: "famille", en: "family", g: "f", t: "n", c: "famille" },
       { fr: "père", en: "father", g: "m", t: "n", c: "famille" },
@@ -397,9 +399,10 @@
 
   var VOWELS = "aeiouâàéèêëîïôûùü";
 
-  /** "livre" (m) -> "le livre" · "eau" (f) -> "l'eau" */
+  /** "livre" (m) -> "le livre" · "eau" (f) -> "l'eau" · "devoirs" -> "les devoirs" */
   function withArticle(item) {
     if (!item || item.t !== "n" || !item.g) return item ? item.fr : "";
+    if (item.pl) return "les " + item.fr;
     var first = item.fr.charAt(0).toLowerCase();
     if (VOWELS.indexOf(first) !== -1) return "l'" + item.fr;
     return (item.g === "m" ? "le " : "la ") + item.fr;
@@ -453,7 +456,9 @@
         var weight = i === level ? 3 : i === level - 1 ? 2 : 1;
         (VOCAB[i] || []).forEach(function (item) {
           if (opts.type && item.t !== opts.type) return;
-          if (opts.nounsOnly && item.t !== "n") return;
+          /* A plural-only noun takes "les" whichever gender it is, so asking
+           * le or la about it has no right answer. */
+          if (opts.nounsOnly && (item.t !== "n" || item.pl)) return;
           for (var w = 0; w < weight; w++) out.push(item);
         });
       }

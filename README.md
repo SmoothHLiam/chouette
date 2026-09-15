@@ -80,6 +80,38 @@ roster.
    student finishes a round — nothing to mark, and it only ever pays out once.
 3. **Watch the roster.** Students on the same device appear automatically.
 
+### Fiches à imprimer
+
+Not every lesson is a screen lesson. **Fiches à imprimer** turns any of your
+word lists — or the game's own bank — into paper, in the browser, with no
+request to anything:
+
+| Format | What comes out |
+| --- | --- |
+| Contrôle | Numbered prompts with a ruled line, French → English or the other way, optional corrigé on its own page |
+| Liste d'étude | A two-up reference sheet to take home |
+| Cartes à découper | A 3 × 3 grid to cut up, with the backs mirrored so a double-sided print (flipped on the long edge) lands each translation behind its own word |
+| Tableaux de conjugaison | Blank tables for six verbs in any tense the class has met, plus the filled-in corrigé |
+
+*Mélanger l'ordre* is on by default, so printing the same contrôle twice gives
+you an A version and a B version. The preview shows exactly what the printer
+gets; **Imprimer** opens the normal print dialogue, where *Save as PDF* works
+just as well for posting it to Google Classroom.
+
+The sheet looks the same in both skins — it is paper, so it is black on white
+either way.
+
+### Exporting to your gradebook
+
+**Exporter (CSV)** above the roster downloads the whole class: a row per
+student, their XP, a column per assignment holding the score they got, and the
+date you last saw them. A blank cell means *not handed in*; `0` means they
+handed in a zero, which is a different thing.
+
+It opens straight into Excel, Numbers or Google Sheets with the accents intact,
+and it is built from the roster the dashboard already has — no extra request, no
+sync write, and it works with the server switched off.
+
 ### The word of the day, chosen by you
 
 **Le mot du prof** on the dashboard puts one word on your students' home screens
@@ -344,6 +376,7 @@ css/
   base.css              design tokens, the six themes, buttons, mascot, FX
   layout.css            level picker, home, results, shop, badges, profile
   games.css             the arcade frame and each mini-game
+  print.css             the printable sheets, and what the printer gets
 js/
   core.js               helpers, class levels, ranks, themes, avatars
   state.js              profile: XP, streak, mastery, unlocks, homework
@@ -352,6 +385,8 @@ js/
   router.js  ui.js  audio.js  speech.js  fx.js
   config.js             where the sync API lives (empty = same origin)
   sync.js               optional, best-effort calls to that API
+  paper.js              builds the printable sheets (pure — no DOM needed)
+  export.js             the gradebook as CSV
   data/                 vocab · verbs · sentences · grammar · quests ·
                         achievements · classroom (codes, assignments, rosters)
   games/                one file per mini-game

@@ -23,6 +23,8 @@ require("../js/games/boss.js");
 require("../js/data/classroom.js");
 require("../js/data/lists.js");
 require("../js/translate.js");
+require("../js/paper.js");
+require("../js/export.js");
 
 var App = globalThis.App;
 var V = App.Vocab, Verbs = App.Verbs, S = App.Sentences, G = App.Grammar;
@@ -601,6 +603,160 @@ eq("…and the translation", School.pickFor(pickLanded.klass.code).en, "dragonfl
 check("clearing removes it", School.clearPick(pickLanded.klass.code) === true);
 check("…so nothing shows", School.pickFor(pickLanded.klass.code) === null);
 check("clearing again is harmless", School.clearPick(pickLanded.klass.code) === false);
+
+/* --------------------------------------------------- plural-only nouns -- */
+/* "devoirs" is plural in French whatever else it is; printing "le devoirs" on
+ * a worksheet teaches the wrong thing. */
+var devoirs = V.upTo(1).filter(function (i) { return i.fr === "devoirs"; })[0];
+check("the bank knows homework is plural", devoirs && devoirs.pl === true);
+eq("…so it takes les", V.withArticle(devoirs), "les devoirs");
+eq("…and shows that everywhere", V.display(devoirs), "les devoirs");
+check("a singular noun ending in -s is untouched",
+  V.withArticle(V.upTo(1).filter(function (i) { return i.fr === "jus"; })[0]) === "le jus");
+/* le or la has no right answer for it, so the gender game must never ask. */
+var genderDeck = V.deck(5, { nounsOnly: true });
+check("the le/la game never asks about a plural",
+  genderDeck.every(function (i) { return !i.pl; }));
+check("…while still having plenty to ask about", genderDeck.length > 100, String(genderDeck.length));
+
+/* ----------------------------------------------------------- on paper -- */
+var Paper = App.Paper;
+
+/* Flashcards are printed double-sided and flipped on the long edge, so the
+ * back of a page is mirrored left-to-right. Get this wrong and every card has
+ * the wrong word behind it. */
+eq("a card row is mirrored", Paper.mirrorRows([1, 2, 3, 4, 5, 6, 7, 8, 9], 3).join(""), "321654987");
+eq("…and a short last row too", Paper.mirrorRows([1, 2, 3, 4], 3).join(""), "3214");
+check("mirroring twice is the identity",
+  Paper.mirrorRows(Paper.mirrorRows([1, 2, 3, 4, 5, 6], 3), 3).join("") === "123456");
+
+var paperClass = School.createClass({ name: "Fiches", teacher: "Mme B.", level: 2 });
+var paperSources = Paper.sources(paperClass);
+check("there is something to print", paperSources.length > 0);
+check("…the built-in bank is offered", paperSources.some(function (s) { return s.id === "level:1"; }));
+check("…only up to the class's own level",
+  !paperSources.some(function (s) { return s.id === "level:3"; }));
+check("…and the verbs come with conjugations",
+  paperSources.some(function (s) { return s.verbs && s.verbs.length; }));
+check("every source has pairs with both sides", paperSources.every(function (s) {
+  return s.pairs.length && s.pairs.every(function (pair) { return pair.fr && pair.en; });
+}));
+
+/* A teacher's own list has to be printable — that is the whole point. */
+App.Lists.save(paperClass.code, {
+  name: "Unité 3", kind: "vocab",
+  items: [{ fr: "le hérisson", en: "hedgehog" }, { fr: "la grenouille", en: "frog" }]
+});
+var withList = Paper.sources(School.get(paperClass.code));
+check("a teacher list is printable",
+  withList.some(function (s) { return s.id.indexOf("list:") === 0; }));
+check("…and it comes first", withList[0].id.indexOf("list:") === 0);
+
+var quizPairs = [{ fr: "le livre", en: "book" }, { fr: "la porte", en: "door" }];
+var quiz = Paper.build({ kind: "quiz", title: "Contrôle", pairs: quizPairs });
+check("a quiz numbers its questions", quiz.indexOf("<b>1.</b>") !== -1 && quiz.indexOf("<b>2.</b>") !== -1);
+check("…asks in French by default", quiz.indexOf("le livre") !== -1);
+check("…leaves a line to write on", quiz.indexOf("paper-blank") !== -1);
+check("…and gives no answers away", quiz.indexOf("book") === -1);
+check("…nor a corrigé", quiz.indexOf("paper-key") === -1);
+
+var quizKeyed = Paper.build({ kind: "quiz", title: "Contrôle", pairs: quizPairs, answers: true });
+check("the corrigé is a second sheet", quizKeyed.indexOf("paper-key") !== -1);
+check("…with the answers on it", quizKeyed.indexOf("book") !== -1 && quizKeyed.indexOf("door") !== -1);
+
+var quizEn = Paper.build({ kind: "quiz", pairs: quizPairs, direction: "en-fr", answers: true });
+check("the other direction asks in English", quizEn.indexOf(">book<") !== -1);
+check("…and expects the article back", quizEn.indexOf("le livre") !== -1);
+
+/* Teacher lists are typed by hand, so the sheet must never execute them. */
+var nasty = Paper.build({ kind: "quiz", title: "<script>x</script>", pairs: [{ fr: "a & b", en: "<b>c</b>" }], answers: true });
+check("a sheet escapes its title", nasty.indexOf("<script>") === -1);
+check("…and the words on it", nasty.indexOf("<b>c</b>") === -1 && nasty.indexOf("&lt;b&gt;c&lt;/b&gt;") !== -1);
+check("…keeping the text readable", nasty.indexOf("a &amp; b") !== -1);
+
+var tenCards = [];
+for (var ci = 0; ci < 10; ci++) tenCards.push({ fr: "mot" + ci, en: "word" + ci });
+var cards = Paper.build({ kind: "cards", pairs: tenCards });
+eq("ten cards need two sheets, front and back",
+  cards.split("paper-page").length - 1, 4);
+check("a card front is French", cards.indexOf("mot0") !== -1);
+check("…its back is English", cards.indexOf("word0") !== -1);
+/* The second sheet holds one card, so eight cells are blank — on both sides,
+ * or the cut lines would not line up. */
+eq("a part-full page is padded to the grid", cards.split("is-blank").length - 1, 16);
+
+var studyList = Paper.build({ kind: "list", pairs: tenCards });
+eq("a study list puts two pairs on a row", studyList.split("<tr>").length - 1, 1 + 5);
+check("…and never leaks a blank line to write on", studyList.indexOf("paper-blank") === -1);
+
+/* The sheet tells a French class what to do, in French. */
+eq("the instruction contracts à + le", Paper.atTense("le passé composé"), "au passé composé");
+eq("…and elides before a vowel", Paper.atTense("l'imparfait"), "à l'imparfait");
+eq("…and copes with a bare name", Paper.atTense("présent"), "au présent");
+
+var etre = Verbs.all.filter(function (v) { return v.inf === "être"; });
+var conj = Paper.build({ kind: "verbs", verbs: etre, tense: "present", answers: true });
+check("a blank table has a line per person", conj.indexOf("paper-blank-cell") !== -1);
+check("…under a properly worded instruction", conj.indexOf("au présent.") !== -1);
+check("…and does not print the answers on it",
+  conj.slice(0, conj.indexOf("paper-key")).indexOf("sommes") === -1);
+check("the corrigé conjugates properly", conj.indexOf("sommes") !== -1 && conj.indexOf("êtes") !== -1);
+eq("…for all six persons", conj.split("paper-answer").length - 1, 6);
+
+/* --------------------------------------------------------- gradebook -- */
+var Export = App.Export;
+
+eq("a plain cell is left alone", Export.cell("Chloé"), "Chloé");
+eq("a comma forces quotes", Export.cell("Dupont, Marie"), '"Dupont, Marie"');
+eq("a quote is doubled", Export.cell('say "hi"'), '"say ""hi"""');
+eq("a number stays a number", Export.cell(420), "420");
+/* A student picks their own name and it travels here from their device; a
+ * spreadsheet must read it as text, not run it. */
+eq("a formula is defused", Export.cell("=1+1"), "'=1+1");
+eq("…and so is a lookalike", Export.cell("@SUM(A1)"), "'@SUM(A1)");
+eq("rows join with CRLF", Export.toCsv([["a"], ["b"]]), "a\r\nb");
+
+var gradeClass = School.createClass({ name: "Carnet · période 4", teacher: "M. R.", level: 1 });
+var d1 = School.addAssignment(gradeClass.code, { gameId: "eclair", goal: "correct", target: 20 });
+var d2 = School.addAssignment(gradeClass.code, { gameId: "genre", goal: "play" });
+var live = School.get(gradeClass.code);
+live.roster = {
+  s1: { name: "Chloé", xp: 300, done: { }, lastSeen: 0 },
+  s2: { name: "Ahmed", xp: 120, done: { }, lastSeen: 0 },
+  s3: { name: "Zoé", xp: 900, done: { }, lastSeen: 0 }
+};
+live.roster.s1.done[d1.id] = { at: Date.now(), score: 880 };
+live.roster.s1.done[d2.id] = { at: Date.now(), score: 0 };
+live.roster.s3.done[d1.id] = { at: Date.now(), score: 400 };
+School.put(live);
+
+var book = Export.gradebook(School.get(gradeClass.code));
+eq("the gradebook has a row per student", book.length, 4);
+eq("…and a column per assignment", book[0].length, 3 + 2 + 1);
+check("the header names the work", book[0][3].indexOf("1.") === 0);
+eq("the furthest along comes first", book[1][0], "Chloé");
+eq("…then the next", book[2][0], "Zoé");
+eq("…and whoever has done nothing is last", book[3][0], "Ahmed");
+eq("a finished assignment shows its score", book[1][3], 880);
+/* Zero is a real score. Only a blank means "not handed in". */
+eq("…even when the score is zero", book[1][4], 0);
+eq("an unfinished one is blank", book[2][4], "");
+eq("the count matches", book[1][2], 2);
+
+var csv = Export.toCsv(book);
+check("the accented names survive", csv.indexOf("Chloé") !== -1);
+var commaClass = School.get(gradeClass.code);
+commaClass.roster.s4 = { name: "Roux, Jean-Luc", xp: 10, done: {}, lastSeen: 0 };
+School.put(commaClass);
+check("a name with a comma cannot break the columns",
+  Export.toCsv(Export.gradebook(commaClass)).indexOf('"Roux, Jean-Luc"') !== -1);
+
+check("the file is named after the class and the day",
+  /^chouette-carnet-periode-4-\d{4}-\d{2}-\d{2}\.csv$/.test(Export.filename(School.get(gradeClass.code))),
+  Export.filename(School.get(gradeClass.code)));
+
+var emptyClass = School.createClass({ name: "Vide", teacher: "M. R.", level: 1 });
+eq("an empty class exports only a header", Export.gradebook(School.get(emptyClass.code)).length, 1);
 
 /* ------------------------------------------------------------ report -- */
 console.log("Chouette ! — test suite");

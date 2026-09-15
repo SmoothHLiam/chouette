@@ -28,6 +28,7 @@
     wrap.appendChild(classCard(klass, owned));
     wrap.appendChild(pickSection(klass));
     wrap.appendChild(listsSection(klass));
+    wrap.appendChild(paperSection(klass));
     wrap.appendChild(assignmentsSection(klass));
     wrap.appendChild(rosterSection(klass));
 
@@ -779,6 +780,191 @@
       });
     }
 
+    /* --------------------------------------------------------- on paper */
+    /* The one part of the dashboard that is useful on a day when no student
+     * opens the app: a sub folder, a phones-away lesson, a dead wifi. */
+    function paperSection(k) {
+      var card = U.el("button", "wide-card");
+      card.innerHTML = '<span class="wide-icon">🖨️</span><span class="wide-body">' +
+        "<strong>Fiches à imprimer</strong><small>Contrôles, listes d'étude, cartes à " +
+        "découper et tableaux de conjugaison — depuis tes listes ou le vocabulaire du jeu.</small></span>";
+      card.addEventListener("click", function () { App.Sound.click(); printModal(k); });
+      return card;
+    }
+
+    function printModal(k) {
+      App.UI.modal(function (box, close) {
+        box.appendChild(U.el("h3", null, "🖨️ Fiches à imprimer"));
+
+        var all = App.Paper.sources(k);
+        if (!all.length) {
+          box.appendChild(U.el("p", null, "Il n'y a encore rien à imprimer pour cette classe."));
+          var only = U.el("div", "modal-actions");
+          only.appendChild(App.UI.bigButton("Fermer", { variant: "ghost", onClick: close }));
+          box.appendChild(only);
+          return;
+        }
+
+        var sourceSel = U.el("select", "level-select");
+        all.forEach(function (source) {
+          var opt = U.el("option", null, source.label + "  (" + source.pairs.length + ")");
+          opt.value = source.id;
+          sourceSel.appendChild(opt);
+        });
+
+        var formatSel = U.el("select", "level-select");
+        App.Paper.FORMATS.forEach(function (f) {
+          var opt = U.el("option", null, f.icon + "  " + f.label);
+          opt.value = f.id;
+          opt.dataset.label = f.icon + "  " + f.label;
+          formatSel.appendChild(opt);
+        });
+        var formatHint = U.el("small", "setting-hint");
+
+        var title = U.el("input", "conj-input");
+        title.maxLength = 60;
+        title.setAttribute("aria-label", "Titre de la fiche");
+
+        var count = U.el("input", "conj-input");
+        count.type = "number";
+        count.min = "1";
+        count.value = "20";
+        count.setAttribute("aria-label", "Nombre d'entrées");
+
+        var tenseSel = U.el("select", "level-select");
+        App.Verbs.tensesForLevel(k.level || 1).forEach(function (t) {
+          var opt = U.el("option", null, t.fr);
+          opt.value = t.id;
+          tenseSel.appendChild(opt);
+        });
+
+        var dirSel = U.el("select", "level-select");
+        [["fr-en", "Français → anglais"], ["en-fr", "Anglais → français"]]
+          .forEach(function (pair) {
+            var opt = U.el("option", null, pair[1]);
+            opt.value = pair[0];
+            dirSel.appendChild(opt);
+          });
+
+        var shuffle = U.el("input");
+        shuffle.type = "checkbox";
+        shuffle.checked = true;
+        var answers = U.el("input");
+        answers.type = "checkbox";
+        answers.checked = true;
+
+        var fields = [
+          ["Contenu", sourceSel, null],
+          ["Format", formatSel, null],
+          ["Titre", title, null],
+          ["Nombre", count, ["quiz", "list", "cards"]],
+          ["Temps", tenseSel, ["verbs"]],
+          ["Sens", dirSel, ["quiz"]],
+          ["Mélanger l'ordre", shuffle, ["quiz", "cards", "verbs"]],
+          ["Joindre le corrigé", answers, ["quiz", "verbs"]]
+        ].map(function (spec) {
+          var field = U.el("label", "field");
+          field.appendChild(U.el("span", null, spec[0]));
+          field.appendChild(spec[1]);
+          box.appendChild(field);
+          if (spec[1] === formatSel) box.appendChild(formatHint);
+          return { node: field, only: spec[2] };
+        });
+
+        function source() { return App.Paper.sourceById(k, sourceSel.value); }
+
+        /* A source with no verbs cannot make conjugation tables; say so on the
+         * option rather than printing an empty sheet. */
+        function syncFormats() {
+          var src = source();
+          Array.prototype.forEach.call(formatSel.options, function (opt) {
+            var blocked = opt.value === "verbs" && (!src || !src.verbs);
+            opt.disabled = blocked;
+            opt.textContent = blocked
+              ? opt.dataset.label + " — ce contenu n'a pas de verbes"
+              : opt.dataset.label;
+          });
+          if (formatSel.selectedOptions[0] && formatSel.selectedOptions[0].disabled) {
+            formatSel.value = "quiz";
+          }
+        }
+
+        function syncFields() {
+          var kind = formatSel.value;
+          formatHint.textContent = App.Paper.formatById(kind).blurb;
+          fields.forEach(function (f) {
+            f.node.style.display = !f.only || f.only.indexOf(kind) !== -1 ? "" : "none";
+          });
+          var src = source();
+          var max = kind === "verbs" ? (src.verbs || []).length : src.pairs.length;
+          count.max = String(max);
+          if (parseInt(count.value, 10) > max) count.value = String(max);
+          title.placeholder = App.Paper.formatById(kind).label + " — " + k.name;
+        }
+
+        sourceSel.addEventListener("change", function () { syncFormats(); syncFields(); });
+        formatSel.addEventListener("change", syncFields);
+        syncFormats();
+        syncFields();
+
+        var row = U.el("div", "modal-actions");
+        row.appendChild(App.UI.bigButton("Annuler", { variant: "ghost", onClick: close }));
+        row.appendChild(App.UI.bigButton("Aperçu", {
+          onClick: function () {
+            var spec = buildSpec(k, {
+              source: source(),
+              kind: formatSel.value,
+              title: title.value.trim(),
+              count: parseInt(count.value, 10) || 20,
+              tense: tenseSel.value,
+              direction: dirSel.value,
+              shuffle: shuffle.checked,
+              answers: answers.checked
+            });
+            if (!spec) { App.UI.toast("Ce contenu est vide.", "🖨️"); return; }
+            close();
+            App.Paper.open(spec);
+          }
+        }));
+        box.appendChild(row);
+      });
+    }
+
+    /** Turns the form into the spec App.Paper.build understands. */
+    function buildSpec(k, opts) {
+      var source = opts.source;
+      if (!source) return null;
+      var format = App.Paper.formatById(opts.kind);
+
+      var verbs = null;
+      var pairs = source.pairs;
+      if (format.id === "verbs") {
+        verbs = (source.verbs || []).slice();
+        if (!verbs.length) return null;
+        if (opts.shuffle) verbs = U.shuffle(verbs);
+        verbs = verbs.slice(0, Math.max(1, opts.count || 6));
+      } else {
+        if (!pairs.length) return null;
+        /* A list keeps its own order — that is how it was taught. Everything
+         * else may be shuffled, which is also how you get an A and a B version. */
+        if (opts.shuffle && format.id !== "list") pairs = U.shuffle(pairs);
+        if (format.id !== "list") pairs = pairs.slice(0, Math.max(1, opts.count || 20));
+        else if (opts.count) pairs = pairs.slice(0, Math.max(1, opts.count));
+      }
+
+      var clean = source.label.replace(/^[^\wÀ-ɏ]+/, "").trim();
+      return {
+        kind: format.id,
+        title: opts.title || (format.label + " — " + k.name),
+        subtitle: clean + "  ·  " + (k.teacher || p.name) + "  ·  Chouette !",
+        pairs: pairs,
+        verbs: verbs,
+        tense: opts.tense,
+        direction: opts.direction,
+        answers: opts.answers
+      };
+    }
+
     /* ---------------------------------------------------------- the class */
     function rosterSection(k) {
       var box = U.el("section", "roster-section");
@@ -803,6 +989,18 @@
       var paste = U.el("button", "level-chip", "📥 Coller des résultats");
       paste.addEventListener("click", function () { App.Sound.click(); pasteModal(); });
       head.appendChild(paste);
+
+      /* Built from the roster already in hand: no request, no sync write. */
+      var csv = U.el("button", "level-chip", "📤 Exporter (CSV)");
+      csv.title = "Télécharger les résultats pour ton carnet de notes";
+      csv.addEventListener("click", function () {
+        App.Sound.click();
+        var res = App.Export.saveGradebook(App.School.get(k.code));
+        if (!res.ok) { App.UI.toast(res.error, "⚠️"); return; }
+        App.UI.toast(res.students + " élève" + (res.students > 1 ? "s" : "") +
+          " exporté" + (res.students > 1 ? "s" : "") + ".", "📤", "good");
+      });
+      head.appendChild(csv);
       box.appendChild(head);
 
       box.appendChild(list);
