@@ -26,6 +26,24 @@
 
   var active = null;
 
+  /* Extended time is an accommodation, so it has to reach the games themselves
+   * rather than only the screen. The registry's mode object is shared by every
+   * round ever played, so this returns a copy and never touches the original.
+   * "Sans chrono" becomes a mode with no clock at all: the meter counts right
+   * answers instead, and the player ends the round with the ✕. */
+  function scaledMode(base) {
+    var scale = App.Skin && App.Skin.timeScale ? App.Skin.timeScale() : 1;
+    if (base.type !== "timer" || scale === 1) return base;
+    var copy = { type: base.type, duration: base.duration, lives: base.lives, rounds: base.rounds };
+    if (!isFinite(scale)) {
+      copy.type = "free";
+      copy.duration = 0;
+    } else {
+      copy.duration = Math.round((base.duration || 0) * scale);
+    }
+    return copy;
+  }
+
   function play(root, gameId, params) {
     var def = App.Games.get(gameId);
     if (!def) { App.Router.go("home"); return; }
@@ -82,7 +100,7 @@
     root.appendChild(wrap);
 
     /* -------------------------------------------------------- the state -- */
-    var mode = def.mode || { type: "timer", duration: 70 };
+    var mode = scaledMode(def.mode || { type: "timer", duration: 70 });
     var state = {
       score: 0, combo: 0, bestCombo: 0, correct: 0, wrong: 0,
       lives: mode.lives || 0, round: 0, rounds: mode.rounds || 0,

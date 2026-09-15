@@ -928,3 +928,37 @@ html[data-skin="minimal"] .pick-card .wotd-cat {
   border-color: #c9dccf;
 }
 html[data-skin="minimal"] .pick-card .wotd-note { color: #31704a; }
+
+/* ------------------------------------------------------ accommodations -- */
+/* Wider spacing and letterforms that are harder to confuse. This is not a
+   "dyslexia font": the research that has looked at those found the special
+   shapes did not help while extra spacing did, so that is what this does.
+   It overrides the font variable, which means it works in both skins without
+   either design having to know about it. */
+html[data-font="readable"] {
+  --font: Verdana, Tahoma, "DejaVu Sans", "Segoe UI", system-ui, sans-serif;
+  --display: Verdana, Tahoma, "DejaVu Sans", "Segoe UI", system-ui, sans-serif;
+}
+
+html[data-font="readable"] body {
+  letter-spacing: 0.055em;
+  word-spacing: 0.16em;
+  line-height: 1.7;
+}
+
+/* The words being learnt get the most room of all — telling "b" from "d" in
+   « bain » is the whole exercise. */
+html[data-font="readable"] .qprompt,
+html[data-font="readable"] .duel-word,
+html[data-font="readable"] .wotd-word {
+  letter-spacing: 0.085em;
+}
+
+/* Never inside the printed sheet. Paper has its own typography, the extra
+   spacing would push a contrôle onto a second page, and the teacher's reading
+   preference has no business changing the worksheet a class is handed. */
+html[data-font="readable"] .paper-doc {
+  letter-spacing: normal;
+  word-spacing: normal;
+  line-height: 1.45;
+}

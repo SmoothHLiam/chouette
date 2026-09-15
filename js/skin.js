@@ -35,8 +35,39 @@
     { id: "calm", name: "Calmes", blurb: "Sans confettis ni secousses." }
   ];
 
-  var defaults = { skin: "colorful", text: "normal", motion: "full" };
+  /* Not an "OpenDyslexic" setting. The studies that have looked at it did not
+   * find the special letterforms helped; wider letter and line spacing did.
+   * So this widens the spacing and picks a face whose letters are easy to tell
+   * apart, rather than shipping a font file and a claim. */
+  var FONTS = [
+    { id: "standard", name: "Standard", blurb: "La police du jeu." },
+    { id: "readable", name: "Espacée", icon: "🔤",
+      blurb: "Lettres et lignes plus espacées, formes moins ambiguës." }
+  ];
+
+  /* Extended time, worded the way an IEP or a 504 plan words it. This lives on
+   * the device and is never sent anywhere or written to the roster: what a
+   * student is entitled to is nobody else's business. */
+  var TIMINGS = [
+    { id: "normal", name: "Normal", scale: 1, blurb: "Le chrono habituel." },
+    { id: "half", name: "Temps et demi", scale: 1.5, blurb: "50 % de temps en plus." },
+    { id: "double", name: "Double temps", scale: 2, blurb: "Deux fois plus de temps." },
+    { id: "none", name: "Sans chrono", scale: Infinity,
+      blurb: "Pas de minuteur du tout : termine la partie avec la croix." }
+  ];
+
+  var defaults = { skin: "colorful", text: "normal", motion: "full",
+                   font: "standard", timing: "normal" };
   var current = null;
+
+  /** The list a setting's values come from. */
+  function listFor(key) {
+    return key === "skin" ? SKINS
+      : key === "text" ? TEXT_SIZES
+      : key === "motion" ? MOTIONS
+      : key === "font" ? FONTS
+      : TIMINGS;
+  }
 
   function valid(list, id, fallback) {
     for (var i = 0; i < list.length; i++) if (list[i].id === id) return id;
@@ -53,7 +84,9 @@
     return {
       skin: valid(SKINS, saved.skin, defaults.skin),
       text: valid(TEXT_SIZES, saved.text, defaults.text),
-      motion: valid(MOTIONS, saved.motion, defaults.motion)
+      motion: valid(MOTIONS, saved.motion, defaults.motion),
+      font: valid(FONTS, saved.font, defaults.font),
+      timing: valid(TIMINGS, saved.timing, defaults.timing)
     };
   }
 
@@ -63,12 +96,15 @@
     } catch (e) { /* storage blocked — this session only */ }
   }
 
-  /** Puts the settings on the document. Safe to call as often as you like. */
+  /** Puts the settings on the document. Safe to call as often as you like.
+   *  No-ops outside a browser so the test suite can load this file too. */
   function apply() {
+    if (typeof document === "undefined") return;
     var root = document.documentElement;
     root.setAttribute("data-skin", current.skin);
     root.setAttribute("data-text", current.text);
     root.setAttribute("data-motion", current.motion);
+    root.setAttribute("data-font", current.font);
     var sheet = document.getElementById("skin-minimal");
     if (sheet) sheet.disabled = current.skin !== "minimal";
   }
@@ -77,6 +113,8 @@
     SKINS: SKINS,
     TEXT_SIZES: TEXT_SIZES,
     MOTIONS: MOTIONS,
+    FONTS: FONTS,
+    TIMINGS: TIMINGS,
 
     boot: function () {
       current = read();
@@ -90,8 +128,7 @@
     set: function (key, value) {
       if (!current) current = read();
       if (!(key in defaults)) return current;
-      var list = key === "skin" ? SKINS : key === "text" ? TEXT_SIZES : MOTIONS;
-      current[key] = valid(list, value, current[key]);
+      current[key] = valid(listFor(key), value, current[key]);
       write(current);
       apply();
       return current;
@@ -100,11 +137,17 @@
     calm: function () {
       return App.Skin.get("motion") === "calm";
     },
+    /** How much longer a timed game should run. Infinity means "no timer". */
+    timeScale: function () {
+      return App.Skin.describe("timing").scale;
+    },
     describe: function (key) {
-      var list = key === "skin" ? SKINS : key === "text" ? TEXT_SIZES : MOTIONS;
+      var list = listFor(key);
       var id = App.Skin.get(key);
       for (var i = 0; i < list.length; i++) if (list[i].id === id) return list[i];
       return list[0];
     }
   };
+
+  if (typeof module !== "undefined" && module.exports) module.exports = App.Skin;
 })(typeof window !== "undefined" ? window : globalThis);

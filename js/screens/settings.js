@@ -88,6 +88,46 @@
       }
     }));
 
+    /* --------------------------------------------------- accessibilité -- */
+    /* Its own heading rather than three more rows under "Apparence": a student
+     * who needs these should be able to find them without reading everything
+     * else first. All of it stays on this device and is never sent anywhere. */
+    wrap.appendChild(U.el("h3", "shop-head", "Accessibilité"));
+
+    wrap.appendChild(segmented({
+      label: "Lecture du texte",
+      options: App.Skin.FONTS,
+      value: App.Skin.get("font"),
+      onPick: function (id) {
+        App.Skin.set("font", id);
+        App.Sound.click();
+        App.Router.go("settings");
+      }
+    }));
+
+    wrap.appendChild(segmented({
+      label: "Temps dans les jeux",
+      options: App.Skin.TIMINGS,
+      value: App.Skin.get("timing"),
+      onPick: function (id) {
+        App.Skin.set("timing", id);
+        App.Sound.click();
+        App.Router.go("settings");
+      }
+    }));
+
+    /* Read off the registry rather than typed out here, so renaming a game or
+     * adding one never leaves this paragraph quietly lying. */
+    var untimed = App.Games.playable()
+      .filter(function (g) { return !g.mode || g.mode.type !== "timer"; })
+      .map(function (g) { return g.name; });
+    wrap.appendChild(hint(
+      "Ces réglages restent sur cet appareil : ni ton professeur ni personne " +
+      "d'autre ne les voit." +
+      (untimed.length
+        ? " Les jeux sans minuteur (" + untimed.join(", ") + ") ne changent pas."
+        : "")));
+
     /* ------------------------------------------------------ son & voix -- */
     wrap.appendChild(U.el("h3", "shop-head", "Son et voix"));
     var sound = U.el("div", "settings");

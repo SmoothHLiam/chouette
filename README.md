@@ -279,8 +279,8 @@ the other work, and anything added later gets its minimal styling from a
 `[data-skin="minimal"]` block in `layout.css` — `redesign.css` itself is never
 edited.
 
-Display settings (skin, text size, animations) are stored per **device** rather
-than per account: they describe the screen in front of you, they are applied by
+Display settings (skin, text size, animations, and the two accommodations
+below) are stored per **device** rather than per account: they describe the screen in front of you, they are applied by
 a small inline script before the first paint so nobody sees a flash of the wrong
 design, and on a shared classroom computer the display should not change every
 time a different student signs in.
@@ -290,6 +290,28 @@ grand, which scales the whole interface), animations (complètes / calmes —
 calm mode drops confetti, flashes and screen shake for anyone who finds them
 distracting), sound, the French voice and which voice to use, the class level,
 account switching, sync status, and starting over.
+
+### Accessibility
+
+**Réglages → Accessibilité** has two settings that exist for students who need
+them:
+
+* **Lecture du texte — Espacée.** Wider letter spacing, word spacing and line
+  height, in a face whose letters are harder to confuse. Deliberately *not* an
+  OpenDyslexic setting: the studies that have tested those fonts did not find
+  the special letterforms helped, while wider spacing did — so this ships the
+  spacing and not the claim. It overrides the font variable, so it works in
+  both skins without either design knowing about it, and it stops at the edge
+  of a printed sheet.
+* **Temps dans les jeux — normal / temps et demi / double temps / sans
+  chrono.** Extended time, worded the way a 504 plan words it, and it reaches
+  the clock inside the games rather than only the screen. *Sans chrono* removes
+  the timer entirely; the meter counts right answers instead and you end the
+  round with the ✕, which records it exactly as running out of time would.
+
+Neither is sent anywhere, written to the roster or included in the CSV export.
+What a student is entitled to is nobody else's business — including their
+teacher's, unless they choose to say.
 
 ---
 

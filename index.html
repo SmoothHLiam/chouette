@@ -33,6 +33,7 @@
       root.setAttribute("data-skin", skin);
       root.setAttribute("data-text", saved.text || "normal");
       root.setAttribute("data-motion", saved.motion || "full");
+      root.setAttribute("data-font", saved.font || "standard");
       var sheet = document.getElementById("skin-minimal");
       if (sheet) sheet.disabled = skin !== "minimal";
     }());

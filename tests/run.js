@@ -8,6 +8,7 @@ require("../js/data/vocab.js");
 require("../js/data/verbs.js");
 require("../js/data/sentences.js");
 require("../js/data/grammar.js");
+require("../js/skin.js");
 require("../js/state.js");
 require("../js/accounts.js");
 require("../js/shell.js");
@@ -618,6 +619,38 @@ var genderDeck = V.deck(5, { nounsOnly: true });
 check("the le/la game never asks about a plural",
   genderDeck.every(function (i) { return !i.pl; }));
 check("…while still having plenty to ask about", genderDeck.length > 100, String(genderDeck.length));
+
+/* ------------------------------------------------------ accommodations -- */
+var Skin = App.Skin;
+
+/* Extended time has to reach the games, not just the screen. */
+eq("normal time is the plain clock", Skin.get("timing"), "normal");
+eq("…which is a scale of one", Skin.timeScale(), 1);
+Skin.set("timing", "half");
+eq("time and a half", Skin.timeScale(), 1.5);
+Skin.set("timing", "double");
+eq("double time", Skin.timeScale(), 2);
+Skin.set("timing", "none");
+check("no clock at all", Skin.timeScale() === Infinity);
+Skin.set("timing", "nonsense");
+check("a value from nowhere is ignored", Skin.timeScale() === Infinity);
+Skin.set("timing", "normal");
+
+eq("a readable-text default", Skin.get("font"), "standard");
+Skin.set("font", "readable");
+eq("…that can be turned on", Skin.get("font"), "readable");
+check("…and describes itself", !!Skin.describe("font").blurb);
+Skin.set("font", "standard");
+
+/* The registry's mode object is shared by every round ever played; scaling it
+ * in place would make the first player's accommodation everybody's. */
+var timed = App.Games.all().filter(function (g) { return g.mode && g.mode.type === "timer"; });
+check("there are timed games to scale", timed.length > 0);
+var before = timed.map(function (g) { return g.mode.duration; });
+Skin.set("timing", "double");
+check("scaling never touches the registry",
+  timed.every(function (g, i) { return g.mode.duration === before[i]; }));
+Skin.set("timing", "normal");
 
 /* ----------------------------------------------------------- on paper -- */
 var Paper = App.Paper;
