@@ -118,6 +118,43 @@ different places. Add both or one of them will silently fail.
 
 ---
 
+## Step 3b — Let Google redirect back to your own domain
+
+**Do this one, or Google sign-in will fail** with `redirect_uri_mismatch` or
+"missing initial state".
+
+Here is the problem it solves. Firebase's sign-in handler normally lives at
+`chouette-d1106.firebaseapp.com`. Your app lives at `chouettelearning.com`.
+Those are different origins, and every current browser now **partitions
+storage between them** — so the note the handler writes before sending a
+teacher off to Google is unreadable when Google sends them back, and sign-in
+dies on the doorstep with *"Unable to process request due to missing initial
+state."*
+
+The fix is to serve that handler from your own domain. `vercel.json` already
+does the proxying; Google just has to be told the new address is legitimate.
+
+1. Go to the **Google Cloud** console — a different console from Firebase, but
+   the same project:
+   <https://console.cloud.google.com/apis/credentials>
+2. Make sure `chouette-d1106` is the project in the picker at the top.
+3. Under **OAuth 2.0 Client IDs**, click the one Firebase made for you. It is
+   usually called *Web client (auto created by Google Service)*.
+4. Under **Authorised redirect URIs**, click **Add URI** and add both:
+
+   ```
+   https://chouettelearning.com/__/auth/handler
+   https://www.chouettelearning.com/__/auth/handler
+   ```
+
+   Leave the existing `chouette-d1106.firebaseapp.com` one alone — it is still
+   what localhost and any other host use.
+5. **Save.** Google says changes can take a few minutes; in practice it is
+   usually seconds, but if it still fails immediately, wait five and retry
+   before changing anything else.
+
+---
+
 ## Step 4 — Register the web app and copy the config
 
 <https://console.firebase.google.com/project/_/settings/general>
@@ -238,6 +275,9 @@ thing to do when you have five spare minutes, not before a lesson.
 
 | What you see | What it means |
 | --- | --- |
+| "Unable to process request due to missing initial state" | Step 3b. The sign-in handler is being served from a different origin than the app, so the browser partitioned away the state it needed. |
+| `redirect_uri_mismatch` | Step 3b, and check you added *both* the bare domain and `www`. |
+| Google sign-in never opens a popup | Expected on a phone and in the installed app — there is nowhere to put one, so it redirects instead. If nothing happens at all, it is Step 3b. |
 | Popup opens then closes, nothing happens | The domain isn't in **Authorized domains** — Step 3. Check `www` too. |
 | `auth/unauthorized-domain` | Same thing, said out loud. |
 | `auth/operation-not-allowed` | That provider isn't switched on — Step 2. |

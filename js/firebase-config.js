@@ -25,6 +25,23 @@
     /* The SDK is fetched from Google's CDN the first time somebody signs in.
      * Bump this to move versions; "compat" is the build that works as a plain
      * script tag, which is what keeps index.html free of ES modules. */
-    sdkVersion: "12.18.0"
+    sdkVersion: "12.18.0",
+
+    /*
+     * Hosts that serve Firebase's sign-in handler from their OWN origin, via
+     * the /__/auth/ rewrite in vercel.json.
+     *
+     * This matters more than it looks. Google sends a teacher back through
+     * that handler, and the handler has to read state written before they
+     * left. Left on chouette-d1106.firebaseapp.com it is a different origin
+     * from the app, and every current browser partitions storage between the
+     * two — so the state is simply not there on the way back and sign-in dies
+     * with "missing initial state". Proxying the handler onto our own domain
+     * makes app and handler same-origin, which is the fix Firebase documents.
+     *
+     * Anywhere not listed here falls back to the firebaseapp.com domain: it is
+     * right for localhost, where popups work and there is nothing to proxy.
+     */
+    proxiedAuthHosts: ["chouettelearning.com", "www.chouettelearning.com"]
   };
 })(typeof window !== "undefined" ? window : globalThis);

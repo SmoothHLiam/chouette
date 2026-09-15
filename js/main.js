@@ -30,7 +30,19 @@
     /* Restores a teacher's Firebase session, and only on a device that has
      * signed in before — so a student never downloads the SDK at all. Entirely
      * in the background: the app has already drawn by the time it answers. */
-    App.Auth.resume().then(function (who) {
+    App.Auth.resume().then(function (res) {
+      var who = res && res.user;
+      if (res && res.redirected) {
+        /* Back from Google, signed in. This page load is the second half of
+         * a sign-in that began on a screen that no longer exists, so finish
+         * it here — otherwise the teacher lands on the role picker having
+         * apparently done nothing. */
+        if (who) { App.landTeacher(who); return; }
+        /* Came back without a session: send them to the sign-in screen, where
+         * App.Auth.redirectError() explains why. */
+        App.Router.go("signin", { role: "teacher" });
+        return;
+      }
       if (!who) return;
       var account = App.Accounts.byAuthUid(who.uid);
       if (account && App.Accounts.active() && App.Accounts.active().id === account.id) {

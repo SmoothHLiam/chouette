@@ -79,6 +79,9 @@
     /* ------------------------------------------------------- the account */
     function accountBlock() {
       var box = U.el("div", "auth-block");
+      /* Set when a trip to Google came back without completing. Reading it
+       * clears it, so it shows once and not on every later visit. */
+      var returned = App.Auth.redirectError();
       var form = U.el("form", "auth-form");
 
       var email = U.el("input", "conj-input");
@@ -123,6 +126,7 @@
       box.appendChild(google);
       box.appendChild(forgot);
       box.appendChild(note);
+      if (returned) { note.textContent = returned; note.className = "auth-note bad"; }
 
       function busy(on) {
         [signIn, create, google, forgot].forEach(function (b) { b.disabled = on; });
@@ -142,7 +146,7 @@
         var name = who.name || (who.email || "").split("@")[0] || "Professeur";
         App.Sound.levelUp();
         say("Connecté. Je récupère tes classes…", "good");
-        finishTeacher(name, who);
+        App.landTeacher(who, name);
       }
 
       form.addEventListener("submit", function (e) {
@@ -167,7 +171,15 @@
 
       google.addEventListener("click", function () {
         busy(true);
-        App.Auth.signInWithGoogle().then(landed);
+        /* Said before it starts, not after: signInWithRedirect never resolves,
+         * because the browser has already left by then. */
+        if (App.Auth.willRedirect()) say("Redirection vers Google…");
+        App.Auth.signInWithGoogle().then(function (res) {
+          /* Leaving is neither a success nor a failure yet. Keep the buttons
+           * locked and say so, rather than flashing an error on the way out. */
+          if (res.leaving) { say("Redirection vers Google…"); return; }
+          landed(res);
+        });
       });
 
       forgot.addEventListener("click", function () {
@@ -184,26 +196,6 @@
       return box;
     }
 
-    /** Signs a teacher in locally, then pulls down whatever the account owns. */
-    function finishTeacher(name, who) {
-      var account = App.Accounts.byAuthUid(who.uid);
-      if (!account) {
-        account = App.Accounts.create(name, "teacher");
-        App.Accounts.link(account.id, who.uid, who.email);
-      }
-      App.Accounts.signIn(account.id);
-      App.State.profile.role = "teacher";
-      App.State.save();
-
-      App.Sync.syncAccount().then(function (res) {
-        if (res.added) {
-          App.UI.toast(res.added + " classe" + (res.added > 1 ? "s" : "") + " retrouvée" +
-            (res.added > 1 ? "s" : "") + ".", "☁️", "good");
-        }
-        App.Router.go(App.State.profile.level ? "teacher" : "level");
-      });
-    }
-
     var back = U.el("button", "linkish", "← Retour");
     back.addEventListener("click", function () { App.Sound.click(); App.Router.go("role"); });
 
@@ -212,4 +204,32 @@
     host.appendChild(wrap);
     setTimeout(function () { if (!existing.length) input.focus(); }, 120);
   });
+  /**
+   * Signs a teacher in locally and pulls down whatever their account owns.
+   *
+   * Lives out here rather than inside the screen because a Google sign-in that
+   * went the redirect route lands on a *fresh page load* — there is no screen
+   * left holding a callback, and main.js finishes the job instead.
+   */
+  App.landTeacher = function (who, fallbackName) {
+    if (!who) return Promise.resolve();
+    var name = who.name || fallbackName ||
+      (who.email || "").split("@")[0] || "Professeur";
+    var account = App.Accounts.byAuthUid(who.uid);
+    if (!account) {
+      account = App.Accounts.create(name, "teacher");
+      App.Accounts.link(account.id, who.uid, who.email);
+    }
+    App.Accounts.signIn(account.id);
+    App.State.profile.role = "teacher";
+    App.State.save();
+
+    return App.Sync.syncAccount().then(function (res) {
+      if (res.added) {
+        App.UI.toast(res.added + " classe" + (res.added > 1 ? "s" : "") + " retrouvée" +
+          (res.added > 1 ? "s" : "") + ".", "☁️", "good");
+      }
+      App.Router.go(App.State.profile.level ? "teacher" : "level");
+    });
+  };
 })(typeof window !== "undefined" ? window : globalThis);
