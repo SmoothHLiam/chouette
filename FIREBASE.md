@@ -11,9 +11,9 @@ district policy. Teacher-only sidesteps all of it.
 
 Total time: about ten minutes. Cost: nothing, and no credit card.
 
-> **Do this part first.** The app code that uses it comes after — you are
-> creating the account this repository will point at. Nothing here changes the
-> game until that lands, so you cannot break the version you are running now.
+> **The code is in.** `chouette-d1106` is wired up in `js/firebase-config.js`
+> and `worker/wrangler.toml`. If you have already been through the steps below,
+> skip to [Turning it on](#turning-it-on) at the end.
 
 ---
 
@@ -147,6 +147,10 @@ const firebaseConfig = {
 Paste that whole block back to me. I need `apiKey`, `authDomain`, `projectId`
 and `appId`; the other two are harmless to include.
 
+**Already done** — the values for `chouette-d1106` are in
+`js/firebase-config.js`. This step is here for the next project, or if you ever
+start again.
+
 > **Why ignore the code?** Firebase's sample uses `<script type="module">` and
 > `import` statements. Chouette deliberately uses plain script tags so the game
 > still runs when you double-click `index.html` with no server and no internet.
@@ -182,6 +186,51 @@ So: paste the config here without worrying, and don't go looking for a secret
 to hide. There isn't one. (If you ever add a *service account* JSON file —
 a different thing entirely — **that** one is a real secret and never goes in
 the repository.)
+
+---
+
+## Turning it on
+
+Two deploys, because the two halves live in different places.
+
+1. **The site** (the sign-in screen itself) goes out with your next push —
+   Vercel rebuilds on its own.
+2. **The Worker** has to be redeployed by hand, or it will not know your
+   project exists and will keep refusing every token:
+
+   ```bash
+   cd worker
+   npx wrangler deploy
+   ```
+
+Then check it took: **Réglages → Compte** should offer a teacher *Se
+connecter*, and signing in should land you back on your dashboard.
+
+### What happens the first time you sign in
+
+Any class already on that device gets attached to your account — quietly, once.
+After that it is yours on every device you sign in to, and losing the laptop
+stops meaning losing the class.
+
+Your existing classes are untouched by all of this. They keep their codes,
+their rosters and their homework, and they keep working on devices that never
+sign in at all.
+
+### On a shared classroom computer
+
+**Sign out when you're done.** The next person to open the app on that machine
+would otherwise be you, with your classes in front of them. It is in
+**Réglages → Compte**, and signing out deletes nothing — your classes are on
+your account, and signing back in brings them straight back.
+
+### Optional: lock the key to your domain
+
+Not required, and nothing breaks without it. If you want the tidier setup, the
+`apiKey` can be restricted to your own site so nobody else's page can spend
+your quota with it: Google Cloud console → *APIs & Services* → *Credentials* →
+your browser key → *Application restrictions* → *Websites*, then add
+`chouettelearning.com/*`. Get it wrong and sign-in stops working, so it is a
+thing to do when you have five spare minutes, not before a lesson.
 
 ---
 

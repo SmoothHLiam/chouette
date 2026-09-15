@@ -46,11 +46,31 @@
     return !!base();
   }
 
-  function request(method, path, body) {
+  /**
+   * A signed-in teacher's ID token, or "" for everyone else — which is most
+   * people. Resolved per request rather than cached: Firebase rotates these
+   * roughly hourly and refreshes them behind `token()`.
+   */
+  function bearer() {
+    if (!App.Auth || !App.Auth.signedIn()) return Promise.resolve("");
+    return App.Auth.token().catch(function () { return ""; });
+  }
+
+  function request(method, path, body, opts0) {
     if (!available()) return Promise.resolve({ ok: false, error: "offline", offline: true });
+    /* Only the calls that need to prove who you are pay for a token. A
+     * student's progress push must never wait on Firebase. */
+    var wantsAuth = !!(opts0 && opts0.auth);
+    return (wantsAuth ? bearer() : Promise.resolve("")).then(function (token) {
+      return send(method, path, body, token);
+    });
+  }
+
+  function send(method, path, body, token) {
     var controller = typeof AbortController === "function" ? new AbortController() : null;
     var timer = setTimeout(function () { if (controller) controller.abort(); }, TIMEOUT);
     var opts = { method: method, headers: { "Content-Type": "application/json" } };
+    if (token) opts.headers.Authorization = "Bearer " + token;
     if (body !== undefined) opts.body = JSON.stringify(body);
     if (controller) opts.signal = controller.signal;
 
@@ -153,6 +173,16 @@
       });
     },
 
+    /* A teacher may act on a class two ways: holding its device token, or
+     * being signed in to the account that owns it. Before accounts there was
+     * only the first, so every call below used to bail out without a token —
+     * which is precisely the state of a teacher who has just signed in on a
+     * new laptop. */
+    canManage: function (klass) {
+      if (!klass || !klass.cloud) return false;
+      return !!klass.token || !!(App.Auth && App.Auth.signedIn());
+    },
+
     createClass: function (klass) {
       return request("POST", "/api/classes", {
         preferred: klass.code,
@@ -162,11 +192,70 @@
         assignments: klass.assignments || [],
         lists: klass.lists || [],
         pick: klass.pick || null
+      }, { auth: true });
+    },
+
+    /** Attaches an existing class to the signed-in account, once. */
+    claimClass: function (klass) {
+      if (!klass || !klass.cloud || !klass.token) {
+        return Promise.resolve({ ok: false, error: "local" });
+      }
+      return request("POST", "/api/classes/" + App.School.normalizeCode(klass.code) + "/claim",
+        { token: klass.token }, { auth: true });
+    },
+
+    /**
+     * Run once after signing in. Two halves, and both matter:
+     *
+     *  · Claim. Classes made on this device before there were accounts get
+     *    attached to it, so they stop being one lost laptop away from gone.
+     *  · Collect. Classes this account owns that this device has never seen
+     *    are pulled down — which is the entire reason to sign in on a new
+     *    machine at all.
+     *
+     * Best-effort throughout: a failure leaves everything exactly as it was.
+     */
+    syncAccount: function () {
+      if (!App.Auth || !App.Auth.signedIn() || !available()) {
+        return Promise.resolve({ ok: false, claimed: 0, added: 0 });
+      }
+      var mine = App.School.all().filter(function (k) {
+        return k.owned && k.cloud && k.token;
+      });
+      var claimed = 0;
+      var chain = mine.reduce(function (queue, klass) {
+        return queue.then(function () {
+          return App.Sync.claimClass(klass).then(function (res) {
+            if (res.ok && !res.already) claimed++;
+          });
+        });
+      }, Promise.resolve());
+
+      return chain.then(function () {
+        return App.Sync.myClasses();
+      }).then(function (res) {
+        if (!res.ok) return { ok: false, claimed: claimed, added: 0 };
+        var added = 0;
+        (res.classes || []).forEach(function (data) {
+          if (!App.School.get(data.code)) added++;
+          App.School.adoptCloud(data, true);
+        });
+        return { ok: true, claimed: claimed, added: added };
+      }).catch(function () {
+        return { ok: false, claimed: claimed, added: 0 };
       });
     },
 
+    /** Every class this account owns — the point of signing in elsewhere. */
+    myClasses: function () {
+      if (!App.Auth || !App.Auth.signedIn()) {
+        return Promise.resolve({ ok: false, error: "signed out" });
+      }
+      return request("GET", "/api/classes/mine", undefined, { auth: true });
+    },
+
     updateClass: function (klass) {
-      if (!klass || !klass.token) return Promise.resolve({ ok: false, error: "local" });
+      if (!App.Sync.canManage(klass)) return Promise.resolve({ ok: false, error: "local" });
       return request("PUT", "/api/classes/" + App.School.normalizeCode(klass.code), {
         token: klass.token,
         name: klass.name,
@@ -175,12 +264,13 @@
         assignments: klass.assignments || [],
         lists: klass.lists || [],
         pick: klass.pick || null
-      });
+      }, { auth: true });
     },
 
     deleteClass: function (klass) {
-      if (!klass || !klass.token) return Promise.resolve({ ok: false, error: "local" });
-      return request("DELETE", "/api/classes/" + App.School.normalizeCode(klass.code), { token: klass.token });
+      if (!App.Sync.canManage(klass)) return Promise.resolve({ ok: false, error: "local" });
+      return request("DELETE", "/api/classes/" + App.School.normalizeCode(klass.code),
+        { token: klass.token }, { auth: true });
     },
 
     fetchClass: function (code) {
@@ -227,15 +317,18 @@
 
     /** Removes one student's row from the shared roster. */
     removeStudent: function (klass, studentId) {
-      if (!klass || !klass.token) return Promise.resolve({ ok: false, error: "local class" });
+      if (!App.Sync.canManage(klass)) return Promise.resolve({ ok: false, error: "local class" });
       return request("DELETE", "/api/classes/" + App.School.normalizeCode(klass.code) +
-        "/students/" + encodeURIComponent(studentId), { token: klass.token });
+        "/students/" + encodeURIComponent(studentId), { token: klass.token }, { auth: true });
     },
 
     fetchRoster: function (klass) {
-      if (!klass || !klass.token) return Promise.resolve({ ok: false, error: "local" });
+      if (!App.Sync.canManage(klass)) return Promise.resolve({ ok: false, error: "local" });
+      /* The token rides in the query string as it always has. Without one the
+       * header does the proving instead. */
+      var query = klass.token ? "?token=" + encodeURIComponent(klass.token) : "";
       return request("GET", "/api/classes/" + App.School.normalizeCode(klass.code) +
-        "/roster?token=" + encodeURIComponent(klass.token));
+        "/roster" + query, undefined, { auth: true });
     },
 
     /** Sends where this student is up to. Queues it if the network is down.

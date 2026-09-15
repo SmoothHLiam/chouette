@@ -155,6 +155,40 @@
     wrap.appendChild(U.el("h3", "shop-head", "Compte"));
     var account = U.el("div", "settings");
 
+    /* Only teachers ever see this: a student's account is a name on this
+     * device and nothing else, which is the point. */
+    if (p.role === "teacher" && App.Auth.supported()) {
+      var who = App.Auth.user();
+      var authRow = U.el("div", "setting-row");
+      if (who) {
+        authRow.appendChild(U.el("span", null, "☁️ " + (who.email || "Connecté")));
+        var out = U.el("button", "linkish", "Se déconnecter");
+        out.addEventListener("click", function () {
+          App.Sound.click();
+          App.Auth.signOut().then(function () {
+            /* Signing out takes away the ability to reach classes this device
+             * has no token for — it does not delete anything, here or on the
+             * server, and signing back in brings them straight back. */
+            App.UI.toast("Déconnecté. Tes classes restent sur ton compte.", "👋");
+            App.Router.go("settings");
+          });
+        });
+        authRow.appendChild(out);
+      } else {
+        authRow.appendChild(U.el("span", null, "☁️ Pas de compte"));
+        var inBtn = U.el("button", "linkish", "Se connecter");
+        inBtn.addEventListener("click", function () {
+          App.Sound.click();
+          App.Router.go("signin", { role: "teacher" });
+        });
+        authRow.appendChild(inBtn);
+      }
+      account.appendChild(authRow);
+      account.appendChild(U.el("small", "setting-hint", who
+        ? "Tes classes te suivent sur n'importe quel appareil où tu te connectes."
+        : "Connecte-toi pour retrouver tes classes ailleurs que sur cet appareil."));
+    }
+
     var levelRow = U.el("div", "setting-row");
     levelRow.appendChild(U.el("span", null, "🎓 Niveau de français"));
     var levelBtn = U.el("button", "linkish", App.LEVELS[(p.level || 1) - 1].label + " — changer");

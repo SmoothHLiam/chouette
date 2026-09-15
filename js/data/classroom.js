@@ -496,8 +496,13 @@
       ["--", pickSignature(klass)]).join("\u00a7");
   }
 
-  /** Stores a class fetched from the sync service. */
-  function adoptCloud(data) {
+  /**
+   * Stores a class fetched from the sync service.
+   * `asTeacher` is for a class pulled back by a signed-in teacher on a device
+   * that has never seen it: locally, "owned" means "this is my class", and a
+   * class arriving from my own account is exactly that.
+   */
+  function adoptCloud(data, asTeacher) {
     var existing = get(data.code);
     return put({
       code: data.code,
@@ -505,7 +510,7 @@
       teacher: data.teacher || "",
       level: data.level || 1,
       created: existing ? existing.created : Date.now(),
-      owned: existing ? existing.owned : false,
+      owned: asTeacher ? true : (existing ? existing.owned : false),
       cloud: true,
       token: existing ? existing.token : null,
       assignments: (data.assignments || []).map(function (a) {

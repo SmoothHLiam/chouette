@@ -1,9 +1,15 @@
 /* Chouette ! — who is playing.
  *
- * "Signing in" is local on purpose: no server, no password, no email from a
- * minor. An account is a name, a role and a private profile key, which is
- * exactly enough for a shared classroom computer to keep everyone's scores
- * apart. */
+ * A local account is a name, a role and a private profile key: exactly enough
+ * for a shared classroom computer to keep everyone's scores apart. No server,
+ * no password, no email from a minor, and that is still the whole story for
+ * every student.
+ *
+ * A teacher may additionally link theirs to a Firebase account, which records
+ * nothing here but the uid and the address it belongs to — enough to recognise
+ * them next time and to stop a second local profile appearing every time they
+ * sign in. The profile, the scores and the classes stay exactly where they
+ * were. Unlinking leaves the local account untouched and still usable. */
 (function (global) {
   "use strict";
   var App = (global.App = global.App || {});
@@ -83,6 +89,34 @@
       book.activeId = null;
       save();
       App.State.use(null);
+    },
+
+    /** Ties a local account to a signed-in Firebase user. */
+    link: function (id, uid, email) {
+      var account = find(id);
+      if (!account || !uid) return null;
+      account.authUid = uid;
+      account.authEmail = String(email || "").slice(0, 120);
+      save();
+      return account;
+    },
+
+    /** The local account already tied to this Firebase uid, if any. */
+    byAuthUid: function (uid) {
+      if (!uid) return null;
+      for (var i = 0; i < book.accounts.length; i++) {
+        if (book.accounts[i].authUid === uid) return book.accounts[i];
+      }
+      return null;
+    },
+
+    /** Forgets the link. The local account, and everything in it, stays. */
+    unlink: function (id) {
+      var account = find(id);
+      if (!account) return;
+      delete account.authUid;
+      delete account.authEmail;
+      save();
     },
 
     rename: function (id, name) {

@@ -962,3 +962,51 @@ html[data-font="readable"] .paper-doc {
   word-spacing: normal;
   line-height: 1.45;
 }
+
+/* ------------------------------------------------------- teacher sign-in -- */
+/* Only ever shown to teachers. Students never see a password field. */
+.auth-block {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  text-align: left;
+  margin-bottom: 4px;
+}
+
+.auth-lead { margin: 0; font-size: 0.92rem; color: var(--muted); }
+
+.auth-form { display: flex; flex-direction: column; gap: 8px; }
+
+.auth-actions { display: flex; gap: 8px; }
+.auth-actions .btn { flex: 1; padding: 12px 14px; font-size: 0.95rem; }
+
+.auth-google {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 12px 14px;
+  font-size: 0.95rem;
+}
+
+/* Google's own mark is theirs; a plain letter in their blue is not a logo and
+   needs no permission. */
+.auth-g {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #fff;
+  color: #4285f4;
+  font-weight: 800;
+  font-size: 0.95rem;
+  line-height: 1;
+}
+
+.auth-forgot { align-self: flex-start; font-size: 0.86rem; }
+
+.auth-note { margin: 0; min-height: 1.2em; font-size: 0.88rem; color: var(--muted); }
+.auth-note.good { color: var(--good); }
+.auth-note.bad { color: var(--bad); }

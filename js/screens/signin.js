@@ -1,5 +1,14 @@
-/* Sign in — a name and a role, kept on this device. No password, no email:
- * the people using this are often minors, and nothing here needs an account. */
+/* Sign in.
+ *
+ * Students: a name, kept on this device. No password, no email — they are
+ * often minors, and nothing a student does here needs an account.
+ *
+ * Teachers: the same, plus the option of a real account. That is not about
+ * security; it is because a class used to live on whichever laptop made it.
+ * Signing in is always optional, and the name-only path below it never goes
+ * away — it is what works offline, on a shared computer, and from a file://
+ * page where Firebase cannot run at all.
+ */
 (function (global) {
   "use strict";
   var App = (global.App = global.App || {});
@@ -17,6 +26,12 @@
     card.appendChild(U.el("p", "level-sub", role === "teacher"
       ? "Ton nom apparaîtra sur la classe que tes élèves rejoindront."
       : "Ton prénom suffit. Tout reste sur cet appareil — rien n'est envoyé nulle part."));
+
+    /* The account block sits above the name form, and only for teachers. */
+    if (role === "teacher" && App.Auth.supported()) {
+      card.appendChild(accountBlock());
+      card.appendChild(U.el("p", "or-line", "— ou reste sur cet appareil —"));
+    }
 
     if (existing.length) {
       var pick = U.el("div", "account-row");
@@ -60,6 +75,134 @@
       App.State.save();
       App.Router.go("level");
     });
+
+    /* ------------------------------------------------------- the account */
+    function accountBlock() {
+      var box = U.el("div", "auth-block");
+      var form = U.el("form", "auth-form");
+
+      var email = U.el("input", "conj-input");
+      email.type = "email";
+      email.autocomplete = "email";
+      email.placeholder = "ton.adresse@ecole.org";
+      email.setAttribute("aria-label", "Adresse e-mail");
+
+      var password = U.el("input", "conj-input");
+      password.type = "password";
+      password.autocomplete = "current-password";
+      password.placeholder = "Mot de passe";
+      password.setAttribute("aria-label", "Mot de passe");
+
+      var note = U.el("p", "auth-note");
+      function say(text, kind) {
+        note.textContent = text || "";
+        note.className = "auth-note " + (kind || "");
+      }
+
+      var actions = U.el("div", "auth-actions");
+      var signIn = U.el("button", "btn btn-primary", "Se connecter");
+      signIn.type = "submit";
+      var create = U.el("button", "btn btn-ghost", "Créer un compte");
+      create.type = "button";
+      actions.appendChild(signIn);
+      actions.appendChild(create);
+
+      var google = U.el("button", "btn btn-ghost auth-google");
+      google.type = "button";
+      google.innerHTML = '<span class="auth-g">G</span><span>Continuer avec Google</span>';
+
+      var forgot = U.el("button", "linkish auth-forgot", "Mot de passe oublié ?");
+      forgot.type = "button";
+
+      form.appendChild(email);
+      form.appendChild(password);
+      form.appendChild(actions);
+      box.appendChild(U.el("p", "auth-lead",
+        "Connecte-toi pour retrouver tes classes sur n'importe quel appareil."));
+      box.appendChild(form);
+      box.appendChild(google);
+      box.appendChild(forgot);
+      box.appendChild(note);
+
+      function busy(on) {
+        [signIn, create, google, forgot].forEach(function (b) { b.disabled = on; });
+        say(on ? "Un instant…" : "");
+      }
+
+      /* One landing place for every route in, so the follow-up — adopting the
+       * classes this account already owns — cannot be forgotten on one of
+       * them. */
+      function landed(res) {
+        busy(false);
+        if (!res.ok) {
+          if (!res.cancelled) say(res.error, "bad");
+          return;
+        }
+        var who = App.Auth.user();
+        var name = who.name || (who.email || "").split("@")[0] || "Professeur";
+        App.Sound.levelUp();
+        say("Connecté. Je récupère tes classes…", "good");
+        finishTeacher(name, who);
+      }
+
+      form.addEventListener("submit", function (e) {
+        e.preventDefault();
+        if (!email.value.trim() || !password.value) {
+          say("Entre ton adresse et ton mot de passe.", "bad");
+          return;
+        }
+        busy(true);
+        App.Auth.signIn(email.value.trim(), password.value).then(landed);
+      });
+
+      create.addEventListener("click", function () {
+        if (!email.value.trim() || !password.value) {
+          say("Entre une adresse et un mot de passe pour créer le compte.", "bad");
+          return;
+        }
+        busy(true);
+        App.Auth.createAccount(email.value.trim(), password.value,
+          (input.value || "").trim()).then(landed);
+      });
+
+      google.addEventListener("click", function () {
+        busy(true);
+        App.Auth.signInWithGoogle().then(landed);
+      });
+
+      forgot.addEventListener("click", function () {
+        if (!email.value.trim()) { say("Entre ton adresse d'abord.", "bad"); return; }
+        busy(true);
+        App.Auth.sendReset(email.value.trim()).then(function (res) {
+          busy(false);
+          say(res.ok
+            ? "Regarde tes e-mails : un lien pour changer ton mot de passe est parti."
+            : res.error, res.ok ? "good" : "bad");
+        });
+      });
+
+      return box;
+    }
+
+    /** Signs a teacher in locally, then pulls down whatever the account owns. */
+    function finishTeacher(name, who) {
+      var account = App.Accounts.byAuthUid(who.uid);
+      if (!account) {
+        account = App.Accounts.create(name, "teacher");
+        App.Accounts.link(account.id, who.uid, who.email);
+      }
+      App.Accounts.signIn(account.id);
+      App.State.profile.role = "teacher";
+      App.State.save();
+
+      App.Sync.syncAccount().then(function (res) {
+        if (res.added) {
+          App.UI.toast(res.added + " classe" + (res.added > 1 ? "s" : "") + " retrouvée" +
+            (res.added > 1 ? "s" : "") + ".", "☁️", "good");
+        }
+        App.Router.go(App.State.profile.level ? "teacher" : "level");
+      });
+    }
 
     var back = U.el("button", "linkish", "← Retour");
     back.addEventListener("click", function () { App.Sound.click(); App.Router.go("role"); });

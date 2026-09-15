@@ -71,8 +71,8 @@ page in the first place.
 
 ## Signing in
 
-Sign-in is **local and password-free on purpose**: the people using this are
-often minors, and nothing here needs an email address.
+For **students**, sign-in is local and password-free on purpose. They are often
+minors, and nothing a student does here needs an email address.
 
 * An account is a name, a role and a private profile. Several accounts can live
   on the same browser, so a shared classroom computer keeps everyone's XP,
@@ -81,7 +81,39 @@ often minors, and nothing here needs an email address.
   row to jump straight back in.
 * Switch accounts any time from **Profil → Compte**.
 
-Nothing is uploaded. Everything lives in `localStorage` on that one device.
+Nothing about a student is uploaded except what their teacher already sees: a
+display name, XP, and which homework is done.
+
+### Teacher accounts
+
+**Teachers** get the same, plus the option of a real account — an email and
+password, or *Sign in with Google*, through Firebase. It exists for exactly one
+reason: a class used to live on whichever laptop created it, and losing the
+laptop meant losing the class. Signed in, your classes follow you to any device.
+
+It is built to stay out of the way:
+
+* **Optional, always.** The name-only path is still right there under the
+  sign-in form, and it is what works offline, on a borrowed computer, and from
+  a `file://` page where Firebase cannot run at all. Every failure — no network,
+  a blocked CDN, a closed popup — leaves you on the old path, working.
+* **Loaded on demand.** The Firebase SDK is fetched the first time somebody
+  presses a sign-in button. Opening the app doesn't fetch it, and neither does
+  drawing the form. A student never downloads it at all.
+* **Additive on the server.** A class can be reached two ways: the device token
+  it has always had, or the account that owns it. Nothing that worked before
+  stopped working — the whole pre-existing API suite passed untouched.
+* **Claimed, not orphaned.** Signing in attaches the classes already on that
+  device to your account, once. Classes made before any of this existed keep
+  working either way.
+* **We never see a password.** Firebase takes it. The Worker gets a signed
+  token and checks the signature, the audience, the issuer and the expiry
+  itself — see `worker/jwt.mjs`, where each of those checks has a test that
+  mints exactly the forged token it is there to stop.
+
+Setup is in [FIREBASE.md](FIREBASE.md). Students are untouched throughout: no
+student email, no student password, and the reason why is at the top of that
+page.
 
 ---
 
@@ -447,6 +479,7 @@ rows with it.
 index.html              every script tag, in load order
 worker/
   api.mjs               the sync API: classes, assignments, rosters
+  jwt.mjs               verifies a Firebase ID token (signature, aud, iss, exp)
   index.mjs             Cloudflare entry point (KV-backed, serves the game too)
   wrangler.toml         deploy config
 css/
@@ -465,6 +498,8 @@ js/
   router.js  ui.js  audio.js  speech.js  fx.js
   config.js             where the sync API lives (empty = same origin)
   sync.js               optional, best-effort calls to that API
+  auth.js               teacher sign-in (loads Firebase only on demand)
+  firebase-config.js    which Firebase project — public, like config.js
   ear.js                the browser's French recogniser, and judging what it heard
   install.js            service worker registration and the install prompt
   paper.js              builds the printable sheets (pure — no DOM needed)
@@ -475,7 +510,8 @@ js/
   screens/              role · signin · level · classcode · home · teacher ·
                         results · shop · badges · profile
 tests/run.js            content, conjugation and classroom test suite
-tests/api.mjs           sync API test suite
+tests/jwt.mjs           token verification, against a keypair made in the test
+tests/api.mjs           sync API test suite, including class ownership
 tools/serve.js          static files + the same sync API, for `npm start`
 ```
 

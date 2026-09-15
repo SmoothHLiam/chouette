@@ -27,6 +27,17 @@
      * open the game. */
     App.Install.boot();
 
+    /* Restores a teacher's Firebase session, and only on a device that has
+     * signed in before — so a student never downloads the SDK at all. Entirely
+     * in the background: the app has already drawn by the time it answers. */
+    App.Auth.resume().then(function (who) {
+      if (!who) return;
+      var account = App.Accounts.byAuthUid(who.uid);
+      if (account && App.Accounts.active() && App.Accounts.active().id === account.id) {
+        App.Sync.syncAccount();
+      }
+    });
+
     // The audio context can only start from a real gesture.
     var unlock = function () {
       App.Sound.unlock();
