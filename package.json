@@ -5,7 +5,7 @@
   "description": "Chouette ! — an arcade of French mini-games for students from French 1 through AP French.",
   "scripts": {
     "start": "node tools/serve.js",
-    "test": "node tests/run.js && node tests/api.mjs"
+    "test": "node tests/run.js && node tests/jwt.mjs && node tests/api.mjs"
   },
   "keywords": [
     "french",

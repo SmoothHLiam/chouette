@@ -111,7 +111,11 @@ async function serveApi(req, res) {
     headers: req.headers,
     body: body
   });
-  var response = await api.handleApi(request, fileStore);
+  /* Same project id as the deployed Worker, overridable for testing. Unset,
+   * sign-in is simply ignored and the device tokens carry on working. */
+  var response = await api.handleApi(request, fileStore, {
+    projectId: process.env.FIREBASE_PROJECT_ID || "chouette-d1106"
+  });
   var text = await response.text();
   var headers = {};
   response.headers.forEach(function (value, key) { headers[key] = value; });

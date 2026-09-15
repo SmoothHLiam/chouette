@@ -10,9 +10,18 @@
  *     are done
  * No emails, no passwords, no last names required. A teacher can delete a
  * class and everything under it.
+ *
+ * A teacher may additionally sign in with Firebase, which attaches their
+ * account's uid to a class as `ownerUid` so it follows them between devices.
+ * That is the only identity this service stores, it is a Firebase uid rather
+ * than anything readable, and it never applies to a student: they still join
+ * with a code and a display name and nothing else. Passwords are Firebase's
+ * problem; we only ever see a signed token saying who somebody is.
  */
 
-export const VERSION = "1.0.0";
+import { verifyFirebaseToken } from "./jwt.mjs";
+
+export const VERSION = "1.1.0";
 
 /* Same alphabet as the client: no 0/O and no 1/I/L, because a class code gets
  * read aloud and copied off a whiteboard. */
@@ -42,7 +51,7 @@ function json(body, status = 200, extra = {}) {
       "Cache-Control": "no-store",
       "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization",
       ...extra
     }
   });
@@ -86,6 +95,49 @@ function sameToken(a, b) {
   let diff = 0;
   for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
   return diff === 0;
+}
+
+/* ------------------------------------------------------------ identity -- */
+
+function bearer(request) {
+  const header = request.headers.get("authorization") || "";
+  const match = header.match(/^Bearer\s+(.+)$/i);
+  return match ? match[1].trim() : "";
+}
+
+/**
+ * Who is calling, if they bothered to say. Returns null for everyone else,
+ * which is most requests: students never send a token and the whole service
+ * still works without one.
+ */
+async function identify(request, options) {
+  const token = bearer(request);
+  if (!token) return null;
+  if (!options.projectId) return null;
+  const verify = options.verify || verifyFirebaseToken;
+  let result;
+  try {
+    result = await verify(token, options.projectId, options);
+  } catch (e) {
+    /* Google's keys were unreachable. That is our outage, not their bad
+     * token — say nothing rather than claim they are somebody. */
+    return null;
+  }
+  return result && result.ok ? result : null;
+}
+
+/**
+ * May this caller act as the teacher of `klass`?
+ *
+ * Two ways in, and the old one keeps working: the device token every class has
+ * always had, or an account that owns it. Nothing in the wild breaks by adding
+ * accounts, and a teacher who never signs in never notices they exist.
+ */
+async function isTeacherOf(klass, token, who) {
+  if (klass.tokenHash && sameToken(await sha256(clean(token, 80)), klass.tokenHash)) return true;
+  /* An unowned class has no uid to match. Guard it explicitly: comparing
+   * undefined to a missing uid must never come out true. */
+  return !!(who && who.uid && klass.ownerUid && klass.ownerUid === who.uid);
 }
 
 /* Only the fields we are willing to store, at the sizes we are willing to store. */
@@ -148,6 +200,10 @@ function publicClass(klass) {
     assignments: klass.assignments,
     lists: klass.lists || [],
     pick: klass.pick || null,
+    /* Whether it has an owner, never who. Students fetch this object with
+     * nothing but the class code, and a teacher's uid is not theirs to see —
+     * the client only needs to know whether claiming is still on offer. */
+    owned: !!klass.ownerUid,
     updatedAt: klass.updatedAt
   };
 }
@@ -165,7 +221,7 @@ async function readBody(request) {
 
 /* --------------------------------------------------------------- routing -- */
 
-export async function handleApi(request, store) {
+export async function handleApi(request, store, options = {}) {
   const url = new URL(request.url);
   const path = url.pathname.replace(/\/+$/, "");
   const method = request.method.toUpperCase();
@@ -194,6 +250,7 @@ export async function handleApi(request, store) {
     }
     if (!code) return fail(503, "Impossible de générer un code libre, réessaie.");
 
+    const who = await identify(request, options);
     const token = randomToken();
     const klass = {
       code,
@@ -204,11 +261,36 @@ export async function handleApi(request, store) {
       lists: sanitizeLists(data.lists),
       pick: sanitizePick(data.pick),
       tokenHash: await sha256(token),
+      ownerUid: who ? who.uid : null,
       createdAt: Date.now(),
       updatedAt: Date.now()
     };
     await store.put("class:" + code, klass);
+    /* The device token still comes back even for a signed-in teacher: it is
+     * what keeps the class usable on a laptop that is offline, or signed out,
+     * or was never signed in at all. */
+    if (who) await store.put("owner:" + who.uid + ":" + code, { code, at: Date.now() });
     return json({ ok: true, class: publicClass(klass), token }, 201);
+  }
+
+  /* GET /api/classes/mine — every class this account owns, so signing in on a
+   * new device is enough to get your classes back. Must be matched before the
+   * generic /:code route, which would read "mine" as a class code. */
+  if (path === "/api/classes/mine" && method === "GET") {
+    const who = await identify(request, options);
+    if (!who) return fail(401, "Connecte-toi pour retrouver tes classes.");
+    const rows = await store.list("owner:" + who.uid + ":");
+    const classes = [];
+    for (const row of rows) {
+      const code = row.value && row.value.code;
+      const klass = code ? await store.get("class:" + code) : null;
+      /* A class deleted from another device leaves its index entry behind;
+       * tidy it up rather than reporting a class that is not there. */
+      if (!klass) { await store.delete(row.key); continue; }
+      if (klass.ownerUid !== who.uid) { await store.delete(row.key); continue; }
+      classes.push(publicClass(klass));
+    }
+    return json({ ok: true, classes });
   }
 
   /* DELETE /api/classes/:code/students/:id — the teacher removes one student. */
@@ -222,7 +304,7 @@ export async function handleApi(request, store) {
     if (!klass) return fail(404, "Aucune classe avec ce code.");
     const { data, error } = await readBody(request);
     if (error) return fail(400, error);
-    if (!sameToken(await sha256(clean(data.token, 80)), klass.tokenHash)) {
+    if (!(await isTeacherOf(klass, data.token, await identify(request, options)))) {
       return fail(403, "Seul le professeur de cette classe peut retirer un élève.");
     }
     // Idempotent: removing someone already gone is a success, not an error.
@@ -255,7 +337,7 @@ export async function handleApi(request, store) {
       if (!klass) return fail(404, "Aucune classe avec ce code.");
       const { data, error } = await readBody(request);
       if (error) return fail(400, error);
-      if (!sameToken(await sha256(clean(data.token, 80)), klass.tokenHash)) {
+      if (!(await isTeacherOf(klass, data.token, await identify(request, options)))) {
         return fail(403, "Seul le professeur de cette classe peut la modifier.");
       }
       klass.name = clean(data.name, LIMITS.name) || klass.name;
@@ -273,15 +355,50 @@ export async function handleApi(request, store) {
       if (!klass) return json({ ok: true });
       const { data, error } = await readBody(request);
       if (error) return fail(400, error);
-      if (!sameToken(await sha256(clean(data.token, 80)), klass.tokenHash)) {
+      if (!(await isTeacherOf(klass, data.token, await identify(request, options)))) {
         return fail(403, "Seul le professeur de cette classe peut la supprimer.");
       }
       const rows = await store.list("student:" + code + ":");
       for (const row of rows) await store.delete(row.key);
       const markers = await store.list("gone:" + code + ":");
       for (const marker of markers) await store.delete(marker.key);
+      if (klass.ownerUid) await store.delete("owner:" + klass.ownerUid + ":" + code);
       await store.delete("class:" + code);
       return json({ ok: true, deleted: rows.length });
+    }
+
+    /* POST /api/classes/:code/claim — attach a class to the account calling.
+     *
+     * This is what stops accounts orphaning every class that existed before
+     * them. Prove you are the teacher the old way, once, and the class becomes
+     * yours on every device you sign in to afterwards. */
+    if (sub === "/claim" && method === "POST") {
+      if (!klass) return fail(404, "Aucune classe avec ce code.");
+      const { data, error } = await readBody(request);
+      if (error) return fail(400, error);
+      const who = await identify(request, options);
+      if (!who) return fail(401, "Connecte-toi d'abord.");
+
+      /* Already yours: say so and stop, so a retry is harmless. */
+      if (klass.ownerUid === who.uid) {
+        await store.put("owner:" + who.uid + ":" + code, { code, at: Date.now() });
+        return json({ ok: true, class: publicClass(klass), already: true });
+      }
+      /* Somebody else's. The device token is not enough to take it from them —
+       * that would make a leaked code-plus-token a way to steal a class. */
+      if (klass.ownerUid) {
+        return fail(403, "Cette classe appartient déjà à un autre compte.");
+      }
+      if (!klass.tokenHash ||
+          !sameToken(await sha256(clean(data.token, 80)), klass.tokenHash)) {
+        return fail(403, "Seul le professeur de cette classe peut la rattacher.");
+      }
+
+      klass.ownerUid = who.uid;
+      klass.updatedAt = Date.now();
+      await store.put("class:" + code, klass);
+      await store.put("owner:" + who.uid + ":" + code, { code, at: Date.now() });
+      return json({ ok: true, class: publicClass(klass) });
     }
 
     /* POST /api/classes/:code/progress — a student says where they are up to.
@@ -334,8 +451,11 @@ export async function handleApi(request, store) {
     /* GET /api/classes/:code/roster?token=… — the teacher's view. */
     if (sub === "/roster" && method === "GET") {
       if (!klass) return fail(404, "Aucune classe avec ce code.");
+      /* The roster is a GET, so the device token rides in the query string as
+       * it always has; a signed-in teacher sends a header instead and needs no
+       * token at all. */
       const token = url.searchParams.get("token") || "";
-      if (!sameToken(await sha256(clean(token, 80)), klass.tokenHash)) {
+      if (!(await isTeacherOf(klass, token, await identify(request, options)))) {
         return fail(403, "Seul le professeur de cette classe peut voir les résultats.");
       }
       const rows = await store.list("student:" + code + ":");

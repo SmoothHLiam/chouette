@@ -34,7 +34,24 @@ function memoryStore() {
 
 const store = memoryStore();
 
-async function call(method, path, body, { raw } = {}) {
+/* A stand-in for Firebase. tests/jwt.mjs proves the real verifier against a
+ * real keypair; here the question is what the API does with the answer, so
+ * "who is this" is a lookup rather than a signature check. A token of
+ * "bad-token" verifies as nobody, and "boom" fails the way an unreachable
+ * Google does. */
+const PROJECT = "chouette-test";
+const PEOPLE = {
+  "tok-amina": { ok: true, uid: "uid-amina", email: "amina@example.com", name: "Amina" },
+  "tok-bruno": { ok: true, uid: "uid-bruno", email: "bruno@example.com", name: "Bruno" }
+};
+async function fakeVerify(token, projectId) {
+  if (token === "boom") throw new Error("jwks-unavailable");
+  if (projectId !== PROJECT) return { ok: false, error: "wrong-audience" };
+  return PEOPLE[token] || { ok: false, error: "bad-signature" };
+}
+const OPTIONS = { projectId: PROJECT, verify: fakeVerify };
+
+async function call(method, path, body, { raw, auth } = {}) {
   const init = { method };
   if (raw !== undefined) {
     init.headers = { "Content-Type": "application/json" };
@@ -43,7 +60,10 @@ async function call(method, path, body, { raw } = {}) {
     init.headers = { "Content-Type": "application/json" };
     init.body = JSON.stringify(body);
   }
-  const res = await handleApi(new Request("https://chouette.test" + path, init), store);
+  if (auth) {
+    init.headers = { ...(init.headers || {}), Authorization: "Bearer " + auth };
+  }
+  const res = await handleApi(new Request("https://chouette.test" + path, init), store, OPTIONS);
   const text = await res.text();
   let data = null;
   try { data = JSON.parse(text); } catch { /* not json */ }
@@ -226,6 +246,161 @@ eq("…and its student rows go with it", removed.data.deleted, 2);
 eq("…the class is gone", (await call("GET", "/api/classes/" + code)).status, 404);
 check("…leaving nothing behind in storage",
   [...store._map.keys()].filter((k) => k.includes(code)).length === 0);
+
+/* ==================================================== teacher accounts === */
+/* Everything above this line ran without a single token, and passed. That is
+ * the point: accounts are additive, and a teacher who never signs in keeps the
+ * app they had. */
+
+/* ---- a class created while signed in belongs to that account ------------ */
+const owned = await call("POST", "/api/classes",
+  { name: "French 4", teacher: "Amina", level: 4 }, { auth: "tok-amina" });
+eq("a signed-in teacher can create a class", owned.status, 201);
+const ownedCode = owned.data.class.code;
+check("…which reports itself as owned", owned.data.class.owned === true);
+check("…without ever naming the owner",
+  !JSON.stringify(owned.data).includes("uid-amina"), JSON.stringify(owned.data));
+check("…and still hands back a device token for offline use", !!owned.data.token);
+
+/* The whole point: another device, no token, just the account. */
+const mine = await call("GET", "/api/classes/mine", undefined, { auth: "tok-amina" });
+eq("signing in elsewhere finds your classes", mine.status, 200);
+eq("…all of them", mine.data.classes.length, 1);
+eq("…by code", mine.data.classes[0].code, ownedCode);
+
+eq("…and nobody else's", (await call("GET", "/api/classes/mine", undefined,
+  { auth: "tok-bruno" })).data.classes.length, 0);
+eq("a stranger gets no list at all",
+  (await call("GET", "/api/classes/mine")).status, 401);
+eq("…nor does a bad token", (await call("GET", "/api/classes/mine",
+  undefined, { auth: "bad-token" })).status, 401);
+
+/* ---- the owner can work without the device token ------------------------ */
+const edited = await call("PUT", "/api/classes/" + ownedCode,
+  { name: "French 4 · période 1", level: 4, assignments: [] }, { auth: "tok-amina" });
+eq("the owner can edit with no token", edited.status, 200);
+eq("…and it took", edited.data.class.name, "French 4 · période 1");
+
+const ownedRoster = await call("GET", "/api/classes/" + ownedCode + "/roster",
+  undefined, { auth: "tok-amina" });
+eq("the owner can read the roster with no token", ownedRoster.status, 200);
+
+/* ---- and nobody else can ------------------------------------------------ */
+eq("another teacher cannot edit it",
+  (await call("PUT", "/api/classes/" + ownedCode, { name: "Hijacked" },
+    { auth: "tok-bruno" })).status, 403);
+eq("…nor read the roster",
+  (await call("GET", "/api/classes/" + ownedCode + "/roster",
+    undefined, { auth: "tok-bruno" })).status, 403);
+eq("…nor delete it",
+  (await call("DELETE", "/api/classes/" + ownedCode, {}, { auth: "tok-bruno" })).status, 403);
+eq("…and neither can a stranger with no token at all",
+  (await call("PUT", "/api/classes/" + ownedCode, { name: "Hijacked" })).status, 403);
+eq("the name survived all that",
+  (await call("GET", "/api/classes/" + ownedCode)).data.class.name, "French 4 · période 1");
+
+/* A token for a different Firebase project must not authorise anything. */
+const wrongProject = await handleApi(
+  new Request("https://chouette.test/api/classes/" + ownedCode, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json", Authorization: "Bearer tok-amina" },
+    body: JSON.stringify({ name: "Hijacked" })
+  }), store, { projectId: "someone-else", verify: fakeVerify });
+eq("a token minted for another project authorises nothing", wrongProject.status, 403);
+
+/* ---- claiming a class that predates accounts ---------------------------- */
+const legacy = await call("POST", "/api/classes", { name: "French 1", teacher: "Amina", level: 1 });
+const legacyCode = legacy.data.class.code;
+const legacyToken = legacy.data.token;
+check("a class made without signing in has no owner", legacy.data.class.owned === false);
+
+eq("claiming needs an account",
+  (await call("POST", "/api/classes/" + legacyCode + "/claim", { token: legacyToken })).status, 401);
+eq("…and the device token, not just an account",
+  (await call("POST", "/api/classes/" + legacyCode + "/claim", { token: "wrong" },
+    { auth: "tok-amina" })).status, 403);
+
+const claimed = await call("POST", "/api/classes/" + legacyCode + "/claim",
+  { token: legacyToken }, { auth: "tok-amina" });
+eq("the real teacher can claim it", claimed.status, 200);
+check("…and it is now owned", claimed.data.class.owned === true);
+eq("…and shows up in their list",
+  (await call("GET", "/api/classes/mine", undefined, { auth: "tok-amina" })).data.classes.length, 2);
+
+/* Claiming twice is a no-op, not an error: a flaky network retries. */
+const again = await call("POST", "/api/classes/" + legacyCode + "/claim",
+  { token: legacyToken }, { auth: "tok-amina" });
+eq("claiming again is harmless", again.status, 200);
+check("…and says it was already yours", again.data.already === true);
+
+/* Holding the device token must NOT be enough to take an owned class, or a
+ * leaked token would be a way to steal somebody's class outright. */
+eq("a claimed class cannot be claimed away by someone else",
+  (await call("POST", "/api/classes/" + legacyCode + "/claim", { token: legacyToken },
+    { auth: "tok-bruno" })).status, 403);
+eq("…and it is still Amina's",
+  (await call("GET", "/api/classes/mine", undefined, { auth: "tok-bruno" })).data.classes.length, 0);
+
+/* ---- the old way keeps working, which is the migration --------------- */
+eq("the device token still edits an owned class",
+  (await call("PUT", "/api/classes/" + legacyCode,
+    { name: "French 1 · période 2", level: 1, token: legacyToken })).status, 200);
+
+/* ---- a signed-in stranger is still a stranger ------------------------- */
+const unowned = await call("POST", "/api/classes", { name: "French 2", teacher: "Amina", level: 2 });
+const unownedCode = unowned.data.class.code;
+eq("signing in does not grant access to an unowned class",
+  (await call("PUT", "/api/classes/" + unownedCode, { name: "Hijacked" },
+    { auth: "tok-bruno" })).status, 403);
+eq("…nor to its roster",
+  (await call("GET", "/api/classes/" + unownedCode + "/roster",
+    undefined, { auth: "tok-bruno" })).status, 403);
+
+/* And the same when identity itself misbehaves — against a class stored
+ * before ownerUid existed, which is what is actually sitting in the live KV
+ * today. Those records have no such field at all, so a verifier returning
+ * "yes" with no uid would compare undefined to undefined, come out true, and
+ * hand every pre-existing class to whoever asked. */
+await store.put("class:ABCDEF", {
+  code: "ABCDEF", name: "French 2 (avant les comptes)", teacher: "Amina", level: 2,
+  assignments: [], lists: [], pick: null,
+  tokenHash: "not-a-real-hash", createdAt: Date.now(), updatedAt: Date.now()
+});
+const nobody = await handleApi(
+  new Request("https://chouette.test/api/classes/ABCDEF", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json", Authorization: "Bearer anything" },
+    body: JSON.stringify({ name: "Hijacked" })
+  }), store, { projectId: PROJECT, verify: async () => ({ ok: true }) });
+eq("an identity with no uid matches no class", nobody.status, 403);
+eq("…not even one saved before owners existed",
+  (await call("GET", "/api/classes/ABCDEF")).data.class.name, "French 2 (avant les comptes)");
+check("…which still reports itself unowned",
+  (await call("GET", "/api/classes/ABCDEF")).data.class.owned === false);
+
+/* A real signed-in teacher is refused it too — it is not theirs yet. */
+eq("a real account cannot edit a pre-accounts class either",
+  (await call("PUT", "/api/classes/ABCDEF", { name: "Hijacked" },
+    { auth: "tok-bruno" })).status, 403);
+
+/* ---- outages must not hand out access -------------------------------- */
+eq("an unreachable Google is not an authorisation",
+  (await call("PUT", "/api/classes/" + ownedCode, { name: "Hijacked" }, { auth: "boom" })).status, 403);
+
+/* ---- deleting cleans up the index ------------------------------------ */
+eq("the owner deletes their class",
+  (await call("DELETE", "/api/classes/" + legacyCode, {}, { auth: "tok-amina" })).status, 200);
+eq("…and it leaves their list",
+  (await call("GET", "/api/classes/mine", undefined, { auth: "tok-amina" })).data.classes.length, 1);
+check("…leaving no owner index behind",
+  [...store._map.keys()].filter((k) => k.startsWith("owner:") && k.includes(legacyCode)).length === 0,
+  [...store._map.keys()].filter((k) => k.startsWith("owner:")).join(","));
+
+/* ---- the browser has to be allowed to send the header at all ---------- */
+const preflight = await call("GET", "/api/health");
+check("CORS lets a signed-in browser send Authorization",
+  (preflight.headers.get("access-control-allow-headers") || "").toLowerCase().includes("authorization"),
+  preflight.headers.get("access-control-allow-headers"));
 
 /* ------------------------------------------------------------- report ----- */
 console.log("Chouette ! — sync API tests");

@@ -45,7 +45,12 @@ export default {
           { status: 500, headers: { "Content-Type": "application/json" } }
         );
       }
-      return handleApi(request, kvStore(env.CHOUETTE));
+      /* The Firebase project id is public — it is in the client's config too —
+       * so it is a plain var in wrangler.toml, not a secret. Without it the
+       * API simply ignores sign-in and everything works on device tokens. */
+      return handleApi(request, kvStore(env.CHOUETTE), {
+        projectId: env.FIREBASE_PROJECT_ID || ""
+      });
     }
     // Everything else is the game itself, served by Workers Assets.
     return env.ASSETS.fetch(request);

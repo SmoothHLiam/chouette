@@ -19,6 +19,13 @@ binding = "ASSETS"
 # Static files answer every other path directly; /api/* always runs the Worker.
 run_worker_first = ["/api/*"]
 
+# Teacher sign-in. This is the project id from the Firebase console, which is
+# public (the browser sends it on every sign-in) — a var, not a secret. Leave
+# it empty and the API ignores accounts entirely, falling back to the device
+# tokens classes have always used.
+[vars]
+FIREBASE_PROJECT_ID = "chouette-d1106"
+
 # Created by: npx wrangler kv namespace create CHOUETTE
 [[kv_namespaces]]
 binding = "CHOUETTE"
