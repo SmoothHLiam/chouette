@@ -4,6 +4,9 @@
   var App = (global.App = global.App || {});
   var U = App.U;
 
+  /* Undoes the previous screen's subscription — see where it is set. */
+  var stopWatching = null;
+
   App.Router.register("settings", function (host) {
     var p = App.State.profile;
     host.appendChild(App.UI.topBar({ back: App.UI.homeScreen() }));
@@ -13,6 +16,9 @@
     wrap.appendChild(U.el("p", "page-sub",
       "L'apparence, le texte et les animations valent pour cet appareil — pratique " +
       "sur un ordinateur partagé. Le reste suit ton compte."));
+
+    /* ----------------------------------------------------- application -- */
+    wrap.appendChild(installBlock());
 
     /* ------------------------------------------------------- apparence -- */
     wrap.appendChild(U.el("h3", "shop-head", "Apparence"));
@@ -197,6 +203,19 @@
     account.appendChild(resetRow);
     wrap.appendChild(account);
 
+    /* The prompt can arrive a moment after the screen is drawn, and a new
+     * version can land while it is open. Only ever one subscription: this
+     * screen is redrawn on every change it makes, and stacking a listener each
+     * time would turn one event into an avalanche. */
+    if (stopWatching) stopWatching();
+    stopWatching = App.Install.onChange(function () {
+      if (App.Router.current !== "settings") {
+        if (stopWatching) { stopWatching(); stopWatching = null; }
+        return;
+      }
+      App.Router.go("settings");
+    });
+
     host.appendChild(wrap);
 
     /* ---------------------------------------------------------- pieces -- */
@@ -225,6 +244,57 @@
       var chosen = opts.options.filter(function (c) { return c.id === opts.value; })[0];
       if (chosen && chosen.blurb) block.appendChild(U.el("small", "setting-hint", chosen.blurb));
       return block;
+    }
+
+    /* Installing it, and the fact that it already works with no signal.
+     * Collapses to a single line once there is nothing left to offer. */
+    function installBlock() {
+      var box = U.el("div", "setting-block");
+      box.appendChild(U.el("span", "setting-label", "Application"));
+
+      if (App.Install.updateReady()) {
+        var refresh = App.UI.bigButton("Passer à la nouvelle version", {
+          icon: "✨",
+          onClick: function () { App.Install.update(); }
+        });
+        box.appendChild(refresh);
+      }
+
+      if (App.Install.installed()) {
+        box.appendChild(U.el("small", "setting-hint",
+          "✅ Chouette ! est installée sur cet appareil. Elle s'ouvre et se joue " +
+          "sans connexion ; seule la classe a besoin du réseau."));
+        return box;
+      }
+
+      if (App.Install.canPrompt()) {
+        box.appendChild(App.UI.bigButton("Installer Chouette !", {
+          icon: "📲",
+          onClick: function () {
+            App.Install.prompt().then(function (yes) {
+              if (!yes) App.UI.toast("Tu pourras l'installer plus tard.", "🦉");
+            });
+          }
+        }));
+        box.appendChild(U.el("small", "setting-hint",
+          "Elle s'ajoute à ton écran d'accueil et se joue ensuite sans connexion."));
+        return box;
+      }
+
+      if (App.Install.iOS()) {
+        box.appendChild(U.el("small", "setting-hint",
+          "Pour l'installer : appuie sur Partager, puis « Sur l'écran d'accueil ». " +
+          "Elle se jouera ensuite sans connexion."));
+        return box;
+      }
+
+      box.appendChild(U.el("small", "setting-hint", App.Install.offlineReady()
+        ? "Les jeux, les mots et les verbes sont déjà enregistrés sur cet appareil : " +
+          "tu peux jouer sans connexion. Le menu de ton navigateur propose souvent " +
+          "« Installer » ou « Ajouter à l'écran d'accueil »."
+        : "Ouverte depuis un fichier local, l'app marche déjà entièrement hors " +
+          "ligne. Passe par une adresse http(s) pour pouvoir aussi l'installer."));
+      return box;
     }
 
     function hint(text) {

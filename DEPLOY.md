@@ -181,11 +181,20 @@ Now the real test, which takes a minute:
   a little while to reach every part of the world.
 - **Élèves → Coller des résultats** still works as a backup if a student was
   offline.
+- Tell them to install it: on an http(s) address the browser offers *Install*
+  or *Add to Home Screen*, and **Réglages → Application** has a button for it.
+  Installed, the games work with no signal at all — only joining a class and
+  handing homework in need the network.
 
 ### Redeploying after a change
 
 Any time you edit the game, run `npx wrangler deploy` again from the `worker`
 folder. Classes and rosters are untouched by a redeploy.
+
+Students who have the app installed pick the new version up on their next
+visit: the page itself is always fetched from the network first, and the
+service worker swaps in the rest behind it. If you have changed which files the
+app loads, add them to the list in `sw.js` — `npm test` fails if you forget.
 
 ---
 

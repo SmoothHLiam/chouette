@@ -620,6 +620,56 @@ check("the le/la game never asks about a plural",
   genderDeck.every(function (i) { return !i.pl; }));
 check("…while still having plenty to ask about", genderDeck.length > 100, String(genderDeck.length));
 
+/* -------------------------------------------------------- offline shell -- */
+/* The service worker lists what to cache by hand, and index.html lists what to
+ * load. If the two ever drift, the app breaks only for people with no signal —
+ * the hardest failure to notice and the one this feature exists to prevent. */
+var fs = require("fs");
+var pathOf = function (f) { return require("path").join(__dirname, "..", f); };
+var indexHtml = fs.readFileSync(pathOf("index.html"), "utf8");
+var swSource = fs.readFileSync(pathOf("sw.js"), "utf8");
+
+var referenced = [];
+indexHtml.replace(/(?:src|href)="((?:js|css|icons)\/[^"]+)"/g, function (_, file) {
+  referenced.push(file);
+  return _;
+});
+check("index.html does reference its files", referenced.length > 20, String(referenced.length));
+
+var cached = {};
+swSource.replace(/"\.\/([^"]*)"/g, function (_, file) { cached[file] = true; return _; });
+
+var missing = referenced.filter(function (file) { return !cached[file]; });
+check("every file the page loads is in the offline shell",
+  missing.length === 0, missing.join(", "));
+
+/* And the other way: a file listed but no longer shipped fails the install
+ * step outright, which takes the whole service worker down with it. */
+var listed = Object.keys(cached).filter(function (f) { return f && f.indexOf(".") !== -1; });
+var gone = listed.filter(function (file) { return !fs.existsSync(pathOf(file)); });
+check("every file in the offline shell exists", gone.length === 0, gone.join(", "));
+
+check("the shell caches the page itself", !!cached["index.html"]);
+check("…and the manifest", !!cached["manifest.json"]);
+check("…and both skins", !!cached["css/base.css"] && !!cached["css/redesign.css"]);
+
+/* A cached roster or homework list would be worse than no answer at all. */
+check("the worker never caches the sync API",
+  /url\.pathname\.indexOf\("\/api\/"\) === 0\) return;/.test(swSource));
+
+var manifest = JSON.parse(fs.readFileSync(pathOf("manifest.json"), "utf8"));
+eq("the manifest can stand alone on a home screen", manifest.display, "standalone");
+check("…with an icon Android can crop",
+  manifest.icons.some(function (i) { return i.purpose === "maskable"; }));
+check("…and every icon file exists",
+  manifest.icons.every(function (i) { return fs.existsSync(pathOf(i.src)); }),
+  manifest.icons.map(function (i) { return i.src; }).join(", "));
+check("…all of them cached for offline",
+  manifest.icons.every(function (i) { return cached[i.src]; }));
+/* Relative, so it works on a custom domain, a workers.dev URL and a
+ * subdirectory alike. */
+check("the start URL is relative", manifest.start_url.indexOf("./") === 0, manifest.start_url);
+
 /* ------------------------------------------------------ accommodations -- */
 var Skin = App.Skin;
 

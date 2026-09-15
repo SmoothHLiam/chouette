@@ -1,0 +1,19 @@
+{
+  "name": "Chouette ! — Le français, mais en jeu",
+  "short_name": "Chouette !",
+  "description": "Huit mini-jeux pour réviser le français, du niveau French 1 à l'AP French.",
+  "lang": "fr",
+  "dir": "ltr",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#10143a",
+  "theme_color": "#10143a",
+  "categories": ["education", "games"],
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

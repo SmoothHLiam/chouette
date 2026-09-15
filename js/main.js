@@ -22,6 +22,11 @@
     App.UI.applyTheme(App.State.profile.theme);
     App.Speech.warm();
 
+    /* Registers the service worker and watches for the install prompt. Does
+     * nothing at all from a file:// page, which is still a supported way to
+     * open the game. */
+    App.Install.boot();
+
     // The audio context can only start from a real gesture.
     var unlock = function () {
       App.Sound.unlock();
