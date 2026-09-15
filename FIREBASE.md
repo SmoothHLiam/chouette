@@ -45,11 +45,30 @@ for payment details, you've wandered into the *Blaze* plan; go back.
 
 ---
 
+## A note on finding things
+
+Firebase moves its sidebar around every few months, so each step below leads
+with a **direct link** rather than a menu path. The `_` in those links means
+"my current project" and Firebase resolves it for you. If one doesn't, replace
+`_` with your project ID — it's the part of the address bar after `/project/`
+when you're inside the project, something like `chouette-1a2b3`.
+
+One thing to know before you hunt for a menu: **the product sidebar only exists
+once you are inside a project.** If you're looking at a grid of project cards,
+there is no Authentication link anywhere on the page — click into the project
+first. Your project's name sitting at the top of the left panel is how you know
+you're in.
+
+---
+
 ## Step 2 — Turn on the two sign-in methods
 
-In the left sidebar: **Build → Authentication**, then **Get started**.
+<https://console.firebase.google.com/project/_/authentication/providers>
 
-You'll land on a **Sign-in method** tab listing providers.
+If you'd rather navigate: it is **Authentication** in the left sidebar, possibly
+under a **Build** heading. Click **Get started** the first time.
+
+You want the **Sign-in method** tab, listing providers.
 
 ### Email/Password
 
@@ -80,8 +99,9 @@ You'll land on a **Sign-in method** tab listing providers.
 This is the step people miss, and the failure is confusing: sign-in opens a
 popup that closes immediately and nothing happens.
 
-Still in **Authentication**, go to the **Settings** tab, then
-**Authorized domains**.
+<https://console.firebase.google.com/project/_/authentication/settings>
+
+Or: **Authentication**, the **Settings** tab, then **Authorized domains**.
 
 `localhost` is already there. Click **Add domain** and add, one at a time:
 
@@ -100,12 +120,14 @@ different places. Add both or one of them will silently fail.
 
 ## Step 4 — Register the web app and copy the config
 
-1. Click the **gear icon** (top left, next to *Project Overview*) →
-   **Project settings**.
-2. Scroll to **Your apps** and click the **web** icon — `</>`.
-3. Give it a nickname (`Chouette web`). **Leave *Firebase Hosting* unchecked** —
+<https://console.firebase.google.com/project/_/settings/general>
+
+Or: the **gear icon** near your project's name → **Project settings**.
+
+1. Scroll to **Your apps** and click the **web** icon — `</>`.
+2. Give it a nickname (`Chouette web`). **Leave *Firebase Hosting* unchecked** —
    your site is already on Vercel and Cloudflare; you don't want a third.
-4. Click **Register app**.
+3. Click **Register app**.
 
 Firebase now shows you a code block. **Ignore the code, copy the values.**
 
@@ -173,6 +195,7 @@ the repository.)
 | `auth/popup-blocked` | The browser blocked it. Sign-in has to start from a real click, which it does; allow popups for the site. |
 | Google button missing the support email | Step 2 was saved without one. Reopen the Google provider and fill it in. |
 | A page asking for a credit card | You've drifted to the Blaze plan. Go back; Spark covers all of this. |
+| No **Build** heading, or no sidebar at all | You're on the project list, not inside the project. Click the project card first — or just use the direct links above. |
 
 If the console doesn't match what's written here, tell me what you actually see
 on screen — the sidebar changes wording every few months and I'd rather fix
