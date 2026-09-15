@@ -160,7 +160,8 @@
         teacher: klass.teacher,
         level: klass.level,
         assignments: klass.assignments || [],
-        lists: klass.lists || []
+        lists: klass.lists || [],
+        pick: klass.pick || null
       });
     },
 
@@ -172,7 +173,8 @@
         teacher: klass.teacher,
         level: klass.level,
         assignments: klass.assignments || [],
-        lists: klass.lists || []
+        lists: klass.lists || [],
+        pick: klass.pick || null
       });
     },
 
@@ -201,6 +203,7 @@
       var klass = App.School.get(profile.classCode);
       if (!klass || !klass.cloud) return Promise.resolve({ ok: false, error: "local class" });
       var before = App.School.signature(klass);
+      var pickBefore = App.School.pickSignature(klass);
 
       return App.Sync.checkMembership(profile).then(function (seat) {
         // Only an explicit removal ejects anyone. A missing row could just mean
@@ -211,7 +214,13 @@
         return App.Sync.fetchClass(profile.classCode).then(function (res) {
           if (!res.ok) return res;
           var updated = App.School.adoptCloud(res.class);
-          return { ok: true, changed: App.School.signature(updated) !== before, klass: updated };
+          var pickAfter = App.School.pickSignature(updated);
+          return {
+            ok: true,
+            changed: App.School.signature(updated) !== before,
+            pickChanged: pickAfter !== pickBefore && !!pickAfter,
+            klass: updated
+          };
         });
       });
     },

@@ -26,6 +26,7 @@
     }
 
     wrap.appendChild(classCard(klass, owned));
+    wrap.appendChild(pickSection(klass));
     wrap.appendChild(listsSection(klass));
     wrap.appendChild(assignmentsSection(klass));
     wrap.appendChild(rosterSection(klass));
@@ -195,6 +196,147 @@
         }));
         box.appendChild(row);
         setTimeout(function () { name.focus(); }, 100);
+      });
+    }
+
+    /* -------------------------------------------------- le mot du prof -- */
+    function pickSection(k) {
+      // Its own class, like the lists and assignment sections: three sections
+      // that mean different things must be tellable apart in the DOM.
+      var box = U.el("section", "pick-section");
+      var head = U.el("div", "section-head");
+      head.appendChild(U.el("h3", null, "Le mot du prof"));
+      var today = App.School.pickFor(k.code);
+      var set = U.el("button", "level-chip", today ? "✏️ Changer" : "➕ Choisir un mot");
+      set.addEventListener("click", function () { App.Sound.click(); pickModal(k, today); });
+      head.appendChild(set);
+      box.appendChild(head);
+
+      if (!today) {
+        box.appendChild(U.el("p", "page-sub",
+          "Choisis un mot à mettre en avant aujourd'hui : il apparaîtra sur l'écran " +
+          "de tes élèves, sous le mot du jour. Sans choix, rien ne s'affiche."));
+        return box;
+      }
+
+      var row = U.el("div", "assign-row");
+      row.appendChild(U.el("span", "assign-icon", "⭐"));
+      var mid = U.el("div", "assign-mid");
+      mid.appendChild(U.el("strong", null, today.fr));
+      var bits = [];
+      if (today.en) bits.push(today.en);
+      if (today.note) bits.push("💬 " + today.note);
+      bits.push("visible aujourd'hui seulement");
+      mid.appendChild(U.el("small", null, bits.join("  ·  ")));
+      row.appendChild(mid);
+      row.appendChild(App.GameKit.speakButton(today.fr));
+
+      var del = U.el("button", "icon-btn", "🗑");
+      del.title = "Retirer le mot du prof";
+      del.addEventListener("click", function () {
+        App.Sound.click();
+        confirmModal({
+          title: "Retirer ce mot ?",
+          body: "« " + today.fr + " » disparaîtra de l'écran de tes élèves.",
+          confirm: "Retirer",
+          onConfirm: function () {
+            App.School.clearPick(k.code);
+            publish(App.School.get(k.code));
+            App.Router.go("teacher");
+          }
+        });
+      });
+      row.appendChild(del);
+      box.appendChild(row);
+      return box;
+    }
+
+    function pickModal(k, existing) {
+      App.UI.modal(function (box, close) {
+        box.appendChild(U.el("h3", null, "Le mot du prof"));
+        box.appendChild(U.el("p", null,
+          "Il s'affiche chez tes élèves aujourd'hui, puis disparaît tout seul demain."));
+
+        var fr = U.el("input", "conj-input");
+        fr.placeholder = "le hérisson";
+        fr.maxLength = 80;
+        var en = U.el("input", "conj-input");
+        en.placeholder = "hedgehog";
+        en.maxLength = 120;
+        var note = U.el("input", "conj-input");
+        note.placeholder = "Pourquoi ce mot ? (facultatif)";
+        note.maxLength = 160;
+
+        if (existing) {
+          fr.value = existing.fr;
+          en.value = existing.en || "";
+          note.value = existing.note || "";
+        }
+
+        var found = U.el("small", "setting-hint");
+        var touchedEnglish = !!(existing && existing.en);
+
+        /* The translation fills itself in from what the app already knows —
+         * the class's own lists first, then the game's vocabulary and verbs.
+         * It stops guessing the moment the teacher types their own. */
+        function autoTranslate() {
+          var hit = App.Translate.lookup(fr.value, k.code);
+          if (!fr.value.trim()) { found.textContent = ""; return; }
+          if (hit && !touchedEnglish) {
+            en.value = hit.en;
+            found.textContent = "Traduction trouvée dans " + hit.from +
+              (hit.loose ? " (sans les accents)" : "") + ". Tu peux la corriger.";
+          } else if (hit && touchedEnglish) {
+            found.textContent = "";
+          } else if (!touchedEnglish) {
+            found.textContent = "Mot inconnu du jeu — écris la traduction toi-même.";
+          } else {
+            found.textContent = "";
+          }
+        }
+        fr.addEventListener("input", autoTranslate);
+        en.addEventListener("input", function () {
+          touchedEnglish = en.value.trim().length > 0;
+          if (!touchedEnglish) autoTranslate();
+        });
+
+        [["Le mot, en français", fr], ["En anglais", en], ["Une remarque", note]]
+          .forEach(function (pair) {
+            var field = U.el("label", "field");
+            field.appendChild(U.el("span", null, pair[0]));
+            field.appendChild(pair[1]);
+            box.appendChild(field);
+            if (pair[1] === fr) box.appendChild(found);
+          });
+
+        var listen = App.UI.bigButton("Écouter", {
+          icon: "🔊", variant: "ghost",
+          onClick: function () {
+            if (!App.Speech.say(fr.value || "")) {
+              App.UI.toast("Pas de voix française sur cet appareil.", "🔇");
+            }
+          }
+        });
+        listen.style.marginBottom = "14px";
+        box.appendChild(listen);
+
+        var row = U.el("div", "modal-actions");
+        row.appendChild(App.UI.bigButton("Annuler", { variant: "ghost", onClick: close }));
+        row.appendChild(App.UI.bigButton("Publier", {
+          onClick: function () {
+            if (!fr.value.trim()) { App.UI.toast("Écris d'abord le mot.", "✏️"); return; }
+            App.School.setPick(k.code, {
+              fr: fr.value, en: en.value, note: note.value, by: p.name
+            });
+            publish(App.School.get(k.code));
+            App.Sound.coin();
+            close();
+            App.Router.go("teacher");
+          }
+        }));
+        box.appendChild(row);
+        autoTranslate();
+        setTimeout(function () { fr.focus(); }, 100);
       });
     }
 

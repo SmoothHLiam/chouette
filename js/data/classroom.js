@@ -137,6 +137,7 @@
       token: opts.token || null,  // the teacher's key; never leaves this device
       assignments: [],
       lists: [],
+      pick: null,
       roster: {}
     };
     school.classes[normalizeCode(klass.code)] = klass;
@@ -213,6 +214,49 @@
     profile.classCode = null;
     App.State.save();
     return klass;
+  }
+
+  /* ----------------------------------------------------- mot du prof -- */
+
+  /** The teacher's word for today. Stored with its date so it simply stops
+   *  appearing tomorrow rather than going stale on students' screens. */
+  function setPick(code, draft) {
+    var klass = get(code);
+    if (!klass) return null;
+    var fr = String(draft.fr || "").trim().slice(0, 80);
+    if (!fr) return null;
+    klass.pick = {
+      date: draft.date || U.today(),
+      fr: fr,
+      en: String(draft.en || "").trim().slice(0, 120),
+      note: String(draft.note || "").trim().slice(0, 160),
+      by: String(draft.by || klass.teacher || "").slice(0, 40)
+    };
+    put(klass);
+    return klass.pick;
+  }
+
+  function clearPick(code) {
+    var klass = get(code);
+    if (!klass || !klass.pick) return false;
+    klass.pick = null;
+    put(klass);
+    return true;
+  }
+
+  /** Today's pick, or null. Yesterday's never shows. */
+  function pickFor(code) {
+    var klass = get(code);
+    if (!klass || !klass.pick || !klass.pick.fr) return null;
+    return klass.pick.date === U.today() ? klass.pick : null;
+  }
+
+  /** Separate from the class signature so a new word can be announced as a new
+   *  word, rather than as "the homework changed". */
+  function pickSignature(klass) {
+    var pick = klass && klass.pick;
+    if (!pick) return "";
+    return [pick.date, pick.fr, pick.en, pick.note].join("|");
   }
 
   /** Takes a student off the roster on this device. */
@@ -349,7 +393,8 @@
       }),
       w: (klass.lists || []).map(function (l) {
         return { i: l.id, n: l.name, k: l.kind, x: l.items };
-      })
+      }),
+      p: klass.pick || null
     }));
   }
 
@@ -401,6 +446,7 @@
       lists: (data.w || []).map(function (l) {
         return { id: l.i, name: l.n, kind: l.k, items: l.x || [], created: Date.now(), edited: Date.now() };
       }),
+      pick: data.p && data.p.fr ? data.p : null,
       roster: existing ? existing.roster : {}
     };
     put(klass);
@@ -446,7 +492,8 @@
     var lists = (klass.lists || []).map(function (l) {
       return [l.id, l.name, l.kind, (l.items || []).length, l.edited || 0].join("|");
     }).sort();
-    return [klass.name, klass.level].concat(assignments, ["--"], lists).join("\u00a7");
+    return [klass.name, klass.level].concat(assignments, ["--"], lists,
+      ["--", pickSignature(klass)]).join("\u00a7");
   }
 
   /** Stores a class fetched from the sync service. */
@@ -473,6 +520,10 @@
           items: l.items || [], created: l.created || Date.now(), edited: l.edited || Date.now()
         };
       }),
+      pick: data.pick && data.pick.fr ? {
+        date: data.pick.date, fr: data.pick.fr, en: data.pick.en,
+        note: data.pick.note, by: data.pick.by
+      } : null,
       roster: existing ? existing.roster : {}
     });
   }
@@ -561,6 +612,10 @@
     progressPayload: progressPayload,
     adoptCloud: adoptCloud,
     signature: signature,
+    pickSignature: pickSignature,
+    setPick: setPick,
+    clearPick: clearPick,
+    pickFor: pickFor,
     mergeCloudRoster: mergeCloudRoster,
     importProgress: importProgress,
     roster: roster,

@@ -125,6 +125,20 @@ function sanitizeLists(lists) {
   });
 }
 
+/* The teacher's word of the day: one short row, dated so it expires by itself. */
+function sanitizePick(pick) {
+  if (!pick || typeof pick !== "object") return null;
+  const fr = clean(pick.fr, 80);
+  if (!fr) return null;
+  return {
+    date: clean(pick.date, 10),
+    fr,
+    en: clean(pick.en, 120),
+    note: clean(pick.note, 160),
+    by: clean(pick.by, 40)
+  };
+}
+
 function publicClass(klass) {
   return {
     code: klass.code,
@@ -133,6 +147,7 @@ function publicClass(klass) {
     level: klass.level,
     assignments: klass.assignments,
     lists: klass.lists || [],
+    pick: klass.pick || null,
     updatedAt: klass.updatedAt
   };
 }
@@ -187,6 +202,7 @@ export async function handleApi(request, store) {
       level,
       assignments: sanitizeAssignments(data.assignments),
       lists: sanitizeLists(data.lists),
+      pick: sanitizePick(data.pick),
       tokenHash: await sha256(token),
       createdAt: Date.now(),
       updatedAt: Date.now()
@@ -247,6 +263,7 @@ export async function handleApi(request, store) {
       klass.level = Math.min(Math.max(parseInt(data.level, 10) || klass.level, 1), 5);
       klass.assignments = sanitizeAssignments(data.assignments);
       klass.lists = sanitizeLists(data.lists);
+      klass.pick = sanitizePick(data.pick);
       klass.updatedAt = Date.now();
       await store.put("class:" + code, klass);
       return json({ ok: true, class: publicClass(klass) });

@@ -80,6 +80,20 @@ roster.
    student finishes a round — nothing to mark, and it only ever pays out once.
 3. **Watch the roster.** Students on the same device appear automatically.
 
+### The word of the day, chosen by you
+
+**Le mot du prof** on the dashboard puts one word on your students' home screens
+for the day. It sits under the automatic *mot du jour*, carries the same
+tap-to-hear button, and shows its English underneath. Pick nothing and students
+simply do not see the card; yesterday's word expires on its own.
+
+The English fills itself in as you type, looked up in your own lists first, then
+the game's 334 words and every verb in its engine — including when you skip the
+accents. This is deliberately a local lookup rather than a translation service:
+it is instant, works offline, costs nothing, needs no API key, and sends nothing
+about your class to anyone else. A word the app does not know just needs you to
+type the translation, which is one field.
+
 ### Your own word lists
 
 The vocabulary, sentences and grammar that ship with the game stay exactly as
@@ -205,6 +219,7 @@ Progress is the point, so the game keeps score in five different ways:
 | **Missions du jour** | Three daily quests, rerolled each morning, paid out instantly. |
 | **Badges** | 18 achievements — perfect games, 20× combos, night owls, boss hunters. |
 | **Mot du jour** | One word a day on the home screen, the same one for everyone at that level, with a tap to hear it. |
+| **Le mot du prof** | A word the teacher chooses for today, shown under the mot du jour — and nowhere at all if they haven't chosen one. |
 | **Two looks** | A colourful arcade skin and a quiet minimal one, swapped in **Réglages → Apparence**. |
 | **Devoirs** | Assignments from your teacher, worth 75 🥐 and 100 XP each. |
 

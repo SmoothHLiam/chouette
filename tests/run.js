@@ -22,6 +22,7 @@ require("../js/games/memoire.js");
 require("../js/games/boss.js");
 require("../js/data/classroom.js");
 require("../js/data/lists.js");
+require("../js/translate.js");
 
 var App = globalThis.App;
 var V = App.Vocab, Verbs = App.Verbs, S = App.Sentences, G = App.Grammar;
@@ -535,6 +536,71 @@ eq("…its name", Lists.all(landed.klass.code)[0].name, "Voyage");
 eq("…and its entries", Lists.all(landed.klass.code)[0].items.length, sentenceList.items.length);
 check("…including accented text", /sœur/.test(JSON.stringify(Lists.all(landed.klass.code)[0].items)));
 check("an older invite code without lists still works", School.importShare(listInvite).ok);
+
+/* -------------------------------------------- translation lookup ------ */
+var T = App.Translate;
+eq("an article is stripped before looking up", T.lookup("le chien").en, "dog");
+eq("a bare word works too", T.lookup("chien").en, "dog");
+eq("case does not matter", T.lookup("Le Chien").en, "dog");
+eq("l' is stripped", T.lookup("l'eau").en, "water");
+eq("une is stripped", T.lookup("une pomme").en, "apple");
+eq("verbs are known", T.lookup("manger").en, "to eat");
+eq("…including irregular ones from the engine", T.lookup("soutenir").en, "to support");
+eq("a missing accent still matches", T.lookup("la fenetre").en, "window");
+check("…and says the match was loose", T.lookup("la fenetre").loose === true);
+check("an exact match is not flagged loose", !T.lookup("la fenêtre").loose);
+check("an unknown word returns nothing", T.lookup("zzzznotaword") === null);
+check("an empty string returns nothing", T.lookup("   ") === null);
+check("the source is named", /vocabulaire/.test(T.lookup("chien").from));
+
+var pickClass = School.createClass({ name: "Mot du prof", level: 2 });
+Lists.save(pickClass.code, {
+  name: "Chapitre 9", kind: "vocab",
+  items: [{ fr: "hérisson", en: "hedgehog", g: "m" }, { fr: "blaireau", en: "badger", g: "m" },
+          { fr: "chien", en: "a class-specific dog", g: "m" }, { fr: "libellule", en: "dragonfly", g: "f" }]
+});
+eq("a teacher's own list is searched", T.lookup("le hérisson", pickClass.code).en, "hedgehog");
+check("…and named as the source", /Chapitre 9/.test(T.lookup("le hérisson", pickClass.code).from));
+eq("the class's own wording wins over the built-in bank",
+  T.lookup("chien", pickClass.code).en, "a class-specific dog");
+eq("…while the bank still answers without a class", T.lookup("chien").en, "dog");
+
+/* ------------------------------------------------- the pick itself ---- */
+check("no pick means nothing to show", School.pickFor(pickClass.code) === null);
+
+var pick = School.setPick(pickClass.code, { fr: "le hérisson", en: "hedgehog", note: "notre mascotte", by: "Mme Dupont" });
+check("a pick is stored", !!pick);
+eq("…dated today", pick.date, App.U.today());
+eq("…and shows today", School.pickFor(pickClass.code).fr, "le hérisson");
+eq("…with its translation", School.pickFor(pickClass.code).en, "hedgehog");
+eq("…and its note", School.pickFor(pickClass.code).note, "notre mascotte");
+
+School.setPick(pickClass.code, { fr: "d'hier", en: "yesterday", date: "2020-01-01" });
+check("yesterday's pick does not show", School.pickFor(pickClass.code) === null);
+check("…though it is still on the class record", !!School.get(pickClass.code).pick);
+
+School.setPick(pickClass.code, { fr: "le blaireau", en: "badger" });
+check("a new pick replaces the old one", School.pickFor(pickClass.code).fr === "le blaireau");
+check("an empty word is refused", School.setPick(pickClass.code, { fr: "   " }) === null);
+check("…leaving the previous pick alone", School.pickFor(pickClass.code).fr === "le blaireau");
+
+check("a pick changes the class signature",
+  School.signature(School.get(pickClass.code)) !== School.signature({ name: "Mot du prof", level: 2 }));
+var sigBefore = School.pickSignature(School.get(pickClass.code));
+School.setPick(pickClass.code, { fr: "la libellule", en: "dragonfly" });
+check("…and its own signature tracks the word", School.pickSignature(School.get(pickClass.code)) !== sigBefore);
+
+/* It has to reach students the same way everything else does. */
+var pickInvite = School.shareCode(pickClass.code);
+School.removeClass(pickClass.code);
+var pickLanded = School.importShare(pickInvite);
+check("an invite code carries the pick", pickLanded.ok, pickLanded.error);
+eq("…with the word", School.pickFor(pickLanded.klass.code).fr, "la libellule");
+eq("…and the translation", School.pickFor(pickLanded.klass.code).en, "dragonfly");
+
+check("clearing removes it", School.clearPick(pickLanded.klass.code) === true);
+check("…so nothing shows", School.pickFor(pickLanded.klass.code) === null);
+check("clearing again is harmless", School.clearPick(pickLanded.klass.code) === false);
 
 /* ------------------------------------------------------------ report -- */
 console.log("Chouette ! — test suite");

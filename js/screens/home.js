@@ -40,6 +40,8 @@
     }
 
     wrap.appendChild(wordOfTheDay());
+    var pick = teachersPick();
+    if (pick) wrap.appendChild(pick);
     var listPractice = classLists();
     if (listPractice) wrap.appendChild(listPractice);
 
@@ -126,6 +128,31 @@
     wrap.appendChild(actions);
 
     host.appendChild(wrap);
+
+    /** The teacher's word for today. Absent unless they chose one today, so
+     *  nothing stale and nothing empty is ever shown. */
+    function teachersPick() {
+      if (!p.classCode) return null;
+      var chosen = App.School.pickFor(p.classCode);
+      if (!chosen) return null;
+      var klass = App.School.get(p.classCode);
+
+      var box = U.el("section", "wotd pick-card");
+      var head = U.el("div", "wotd-head");
+      head.appendChild(U.el("span", "wotd-label", "Le mot du prof"));
+      var who = chosen.by || (klass && klass.teacher) || "";
+      if (who) head.appendChild(U.el("span", "wotd-cat", who));
+      box.appendChild(head);
+
+      var line = U.el("div", "wotd-line");
+      line.appendChild(U.el("strong", "wotd-word", chosen.fr));
+      line.appendChild(App.GameKit.speakButton(chosen.fr));
+      box.appendChild(line);
+
+      if (chosen.en) box.appendChild(U.el("small", "wotd-en", chosen.en));
+      if (chosen.note) box.appendChild(U.el("em", "wotd-note", chosen.note));
+      return box;
+    }
 
     /** The teacher's own lists, free to practise outside of homework. */
     function classLists() {
@@ -310,7 +337,10 @@
         }
 
         if (!res.changed) return;
-        App.UI.toast("Ton professeur a mis les devoirs à jour !", "🎒", "good");
+        App.UI.toast(res.pickChanged && App.School.pickFor(p.classCode)
+          ? "Ton professeur a choisi un mot du jour !"
+          : "Ton professeur a mis les devoirs à jour !",
+          res.pickChanged ? "⭐" : "🎒", "good");
         App.Router.go("home");
       });
     }

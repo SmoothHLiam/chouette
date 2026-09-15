@@ -624,7 +624,7 @@
 .homework.has-late .section-head h3::after {
   content: " ⏰";
 }
-.assign-section, .lists-section, .roster-section { margin-bottom: 22px; }
+.assign-section, .lists-section, .pick-section, .roster-section { margin-bottom: 22px; }
 
 .assign-row {
   display: flex;
@@ -909,3 +909,22 @@ html[data-skin="minimal"] .theme-dot.active {
 html[data-skin="minimal"] .list-chip { background: #f3f5f1; border-color: #dfe2dc; }
 html[data-skin="minimal"] .list-preview { border-color: #d3d8d1; }
 html[data-skin="minimal"] .list-problems { background: #faeeee; border-color: #e3c3bf; color: #8d3d35; }
+
+/* The teacher's pick reuses the word-of-the-day card, in its own colour. */
+.pick-card {
+  background: linear-gradient(135deg, rgba(46, 230, 168, 0.14), rgba(79, 123, 255, 0.10));
+}
+.pick-card .wotd-cat {
+  color: var(--good);
+  background: rgba(46, 230, 168, 0.14);
+  border-color: rgba(46, 230, 168, 0.4);
+}
+.pick-card .wotd-note { color: var(--good); }
+
+html[data-skin="minimal"] .pick-card { background: #f2f6f2; border-color: #d7e0d8; }
+html[data-skin="minimal"] .pick-card .wotd-cat {
+  color: #31704a;
+  background: #e7f0e9;
+  border-color: #c9dccf;
+}
+html[data-skin="minimal"] .pick-card .wotd-note { color: #31704a; }
