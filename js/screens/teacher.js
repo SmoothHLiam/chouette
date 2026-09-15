@@ -628,7 +628,9 @@
         anyOpt.value = "any";
         gameSel.appendChild(anyOpt);
         anyOpt.dataset.label = anyOpt.textContent;
-        App.Games.playable().forEach(function (g) {
+        /* assignable(), not playable(): a game that needs a microphone must
+         * never be something a student's mark depends on. */
+        App.Games.assignable().forEach(function (g) {
           var opt = U.el("option", null, g.icon + "  " + g.name);
           opt.value = g.id;
           opt.dataset.label = opt.textContent;

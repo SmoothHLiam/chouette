@@ -355,10 +355,37 @@ teacher's, unless they choose to say.
 | 🎧 | **Écoute Bien** | Listening | 10 clips read aloud in French |
 | 🃏 | **Marché Mémoire** | Vocabulary recall | Memory grid, clear it for a time bonus |
 | 🐲 | **Le Défi du Boss** | Everything at once | 3 hearts vs. a boss, 12 s per question |
+| 🎤 | **Parle Fort !** | Pronunciation, out loud | 8 words, the browser listens — only where it can |
 | 🔁 | **Révision Ciblée** | *Your* mistakes only | Unlocks once you've missed a few words, +25 % XP |
 
 **Révision Ciblée** is the quiet workhorse: the game remembers every word you
 get wrong and builds a private deck out of them.
+
+### Parle Fort !, and what it honestly can't do
+
+Speaking is the hardest thing for a French teacher to assign at scale, because
+it needs a listener. The browser has one — `SpeechRecognition` set to `fr-FR`,
+free, no key, no service, nothing we send anywhere.
+
+It is also the least reliable thing in the app, so it is fenced off accordingly:
+
+* **Firefox has no recogniser**, and Chrome's sends the audio to Google's
+  servers, so it needs a network. When either is true the game is simply not on
+  the map — the same posture as the French voice, which stays silent rather than
+  read French in an English accent. Open it directly anyway and it says which
+  browsers can do it instead of showing a microphone that does nothing.
+* **It can never be set as homework.** `App.Games.assignable()` drops anything
+  declaring `needs`, and a test fails if that ever stops being true. Nobody's
+  mark should depend on whether their browser can listen.
+* **It is generous on purpose.** The article is optional, because a recogniser
+  drops *le* as often as a student does and neither is a pronunciation mistake.
+  A silent final `-s` is ignored, because "le livre" and "le livres" are the
+  same sound and the recogniser is picking a spelling, not judging a mouth. A
+  near miss gets a retry before it counts. And a long word forgives one letter
+  while a short one forgives none — *vert* and *vent* are two different words.
+
+What it cannot do is tell true homophones apart, which no amount of code will
+fix. It is practice, not an examiner.
 
 ### Bosses scale with the class level
 
@@ -438,6 +465,7 @@ js/
   router.js  ui.js  audio.js  speech.js  fx.js
   config.js             where the sync API lives (empty = same origin)
   sync.js               optional, best-effort calls to that API
+  ear.js                the browser's French recogniser, and judging what it heard
   install.js            service worker registration and the install prompt
   paper.js              builds the printable sheets (pure — no DOM needed)
   export.js             the gradebook as CSV

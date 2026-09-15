@@ -20,7 +20,20 @@
       return null;
     },
     forLevel: function (level) {
-      return App.Games.playable().filter(function (g) { return (g.minLevel || 1) <= level; });
+      return App.Games.playable().filter(function (g) {
+        return (g.minLevel || 1) <= level && App.Games.usable(g);
+      });
+    },
+    /* A game may need something this device has not got — a microphone, say.
+     * Rather than let a student open it and fail, it is simply not offered. */
+    usable: function (def) {
+      if (!def || !def.needs) return true;
+      if (def.needs === "mic") return !!(App.Ear && App.Ear.ready());
+      return true;
+    },
+    /** Games a teacher may set as homework: never one that needs hardware. */
+    assignable: function () {
+      return App.Games.playable().filter(function (g) { return !g.needs; });
     }
   };
 

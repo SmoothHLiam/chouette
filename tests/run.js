@@ -11,6 +11,7 @@ require("../js/data/grammar.js");
 require("../js/skin.js");
 require("../js/state.js");
 require("../js/accounts.js");
+require("../js/ear.js");
 require("../js/shell.js");
 require("../js/games/common.js");
 require("../js/games/eclair.js");
@@ -21,6 +22,7 @@ require("../js/games/phrase.js");
 require("../js/games/ecoute.js");
 require("../js/games/memoire.js");
 require("../js/games/boss.js");
+require("../js/games/parle.js");
 require("../js/data/classroom.js");
 require("../js/data/lists.js");
 require("../js/translate.js");
@@ -619,6 +621,63 @@ var genderDeck = V.deck(5, { nounsOnly: true });
 check("the le/la game never asks about a plural",
   genderDeck.every(function (i) { return !i.pl; }));
 check("…while still having plenty to ask about", genderDeck.length > 100, String(genderDeck.length));
+
+/* ------------------------------------------------------------ speaking -- */
+var Ear = App.Ear;
+
+/* A recogniser hands back a spelling, not a pronunciation, so the judge has to
+ * forgive what French spelling hides and nothing more. */
+function said(words, target) { return Ear.judge([].concat(words), target); }
+
+check("saying it exactly is right", said("le livre", "le livre").ok);
+check("the article is optional — it is not a pronunciation", said("livre", "le livre").ok);
+/* The final -s is silent: "le livre" and "le livres" are the same sound. */
+check("a silent plural is not a mistake", said("le livres", "le livre").ok);
+check("…in either direction", said("le devoir", "les devoirs").ok);
+check("an elided article counts", said("l'ordinateur", "ordinateur").ok);
+check("a different word is wrong", !said("le chien", "le chat").ok);
+check("…and not even close", !said("le chien", "le chat").near);
+
+/* Tolerance scales with the word, because so does the room to mishear one
+ * syllable of it. A short word gets none. */
+check("a long word forgives one letter", said("la grenouile", "la grenouille").ok);
+check("a short word forgives nothing", !said("vent", "vert").ok);
+check("…but says it was close", said("vent", "vert").near);
+
+/* The recogniser offers several guesses; any of them may be the right one. */
+check("any alternative can be the right one",
+  said(["le chat", "le chien", "le livre"], "le livre").ok);
+eq("…and it reports which it took", said(["le chien", "le livre"], "le livre").heard, "le livre");
+
+eq("nothing heard is not a pass", said([], "le livre").ok, false);
+eq("…nor is silence", said([""], "le livre").ok, false);
+
+check("accents are not a pronunciation test", said("la fenetre", "la fenêtre").ok);
+check("punctuation is ignored", said("le livre.", "le livre").ok);
+check("case is ignored", said("Le Livre", "le livre").ok);
+
+eq("distance is symmetric", Ear.distance("chat", "chien"), Ear.distance("chien", "chat"));
+eq("…and zero for the same word", Ear.distance("chat", "chat"), 0);
+
+/* The gate. Nothing a student is marked on may need a microphone. */
+var parle = App.Games.get("parle");
+check("the speaking game is registered", !!parle);
+eq("…and declares what it needs", parle.needs, "mic");
+check("no assignable game needs hardware",
+  App.Games.assignable().every(function (g) { return !g.needs; }),
+  App.Games.assignable().filter(function (g) { return g.needs; }).map(function (g) { return g.id; }).join(","));
+check("…and the speaking game is not among them",
+  App.Games.assignable().every(function (g) { return g.id !== "parle"; }));
+check("every other game still is",
+  App.Games.assignable().length === App.Games.playable().length - 1,
+  App.Games.assignable().length + " of " + App.Games.playable().length);
+
+/* Without a recogniser in Node, it must not be offered on the map either. */
+check("an unusable game is off the map",
+  App.Games.forLevel(5).every(function (g) { return g.id !== "parle"; }));
+check("…while everything else is still there", App.Games.forLevel(5).length >= 7,
+  String(App.Games.forLevel(5).length));
+check("a game that needs nothing is always usable", App.Games.usable(App.Games.get("eclair")));
 
 /* -------------------------------------------------------- offline shell -- */
 /* The service worker lists what to cache by hand, and index.html lists what to
