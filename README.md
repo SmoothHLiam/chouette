@@ -1,45 +1,8 @@
 # Chouette ! 🦉
 
-**Le français, mais en jeu.** An arcade of French mini-games for students from
-**French 1 through AP French** — built to be played on purpose, not out of duty.
+Chouette is an open-source and free to use education site for French throughout middle and high school. Teachers can easily create classes from French 1 through AP French. Our goal is to provide all service necessary to make learning more fun for the students, and giving the French teachers whatever it is they may need all in one place.
 
-The app opens by asking **"Are you a student or a teacher?"**, then
-**"What French level are you?"** — French 1, 2, 3, 4 or French 5 (AP French).
-That second answer retunes every word, tense, boss and grammar question in the
-game.
 
-Teachers get a class code and can turn the mini-games into assignments.
-Students enter the code once and their homework shows up inside the game.
-
-No build step and no dependencies. Open the file and play — and if you deploy
-the included Worker, students join a class by typing a six-character code on any
-device and their teacher's roster fills in by itself.
-
----
-
-## Play it
-
-```bash
-git clone <this repo>
-cd tech-ed-project
-open index.html          # macOS — or just double-click the file
-```
-
-Everything is plain HTML, CSS and JavaScript, so `file://` works. If you'd
-rather serve it (handy on a classroom network):
-
-```bash
-npm start                # http://localhost:8080, zero dependencies
-npm start -- 3000        # …on another port
-```
-
-Run the content and conjugation tests:
-
-```bash
-npm test
-```
-
----
 
 ## Installing it, and playing with no signal
 
@@ -69,10 +32,10 @@ Opened by double-clicking `index.html`, none of this runs and nothing breaks:
 service workers need http(s), and the app was built to work from a `file://`
 page in the first place.
 
-## Signing in
+## Student accounts
 
 For **students**, sign-in is local and password-free on purpose. They are often
-minors, and nothing a student does here needs an email address.
+minors, and nothing a student does here needs an email address, so there is no need to collect any information.
 
 * An account is a name, a role and a private profile. Several accounts can live
   on the same browser, so a shared classroom computer keeps everyone's XP,
@@ -172,20 +135,6 @@ It opens straight into Excel, Numbers or Google Sheets with the accents intact,
 and it is built from the roster the dashboard already has — no extra request, no
 sync write, and it works with the server switched off.
 
-### The word of the day, chosen by you
-
-**Le mot du prof** on the dashboard puts one word on your students' home screens
-for the day. It sits under the automatic *mot du jour*, carries the same
-tap-to-hear button, and shows its English underneath. Pick nothing and students
-simply do not see the card; yesterday's word expires on its own.
-
-The English fills itself in as you type, looked up in your own lists first, then
-the game's 334 words and every verb in its engine — including when you skip the
-accents. This is deliberately a local lookup rather than a translation service:
-it is instant, works offline, costs nothing, needs no API key, and sends nothing
-about your class to anyone else. A word the app does not know just needs you to
-type the translation, which is one field.
-
 ### Your own word lists
 
 The vocabulary, sentences and grammar that ship with the game stay exactly as
@@ -218,6 +167,22 @@ genders will not run the gender duel. Students can also practise any of the
 class's lists freely from their home screen, and lists travel with the class
 through both sync and invite codes.
 
+
+### The word of the day, chosen by you
+
+**Le mot du prof** on the dashboard puts one word on your students' home screens
+for the day. It sits under the automatic *mot du jour*, carries the same
+tap-to-hear button, and shows its English underneath. Pick nothing and students
+simply do not see the card; yesterday's word expires on its own.
+
+If the word is found, the English fills itself in as you type, looked up in your own 
+lists first, then the game's 334 words and every verb in its engine — including 
+when you skip the accents. This is deliberately a local lookup rather than a 
+translation service: it is instant, works offline, costs nothing, needs no API key, 
+and sends nothing about your class to anyone else. A word the app does not know just 
+needs you to type the translation, which is one field.
+
+
 ### Getting a class onto other devices
 
 **With sync switched on** (see *Deploying* below), there is nothing to it: write
@@ -239,63 +204,7 @@ class names survive the trip.
 
 ---
 
-## Deploying (optional, for live classes)
 
-Everything above works offline. Sync adds one thing: short codes that work
-anywhere, and rosters that fill in by themselves.
-
-### On your own machine or the classroom network
-
-Already done — `npm start` serves the game *and* the sync API, storing classes
-in `.chouette-data.json` next to the project:
-
-```bash
-npm start            # http://localhost:8080
-```
-
-Students on the same Wi-Fi open `http://<your-ip>:8080` and join with the short
-code. Nothing leaves the building. The catch is that it only works while that
-machine is on and reachable, and some school networks stop devices talking to
-each other.
-
-### On Cloudflare (works from home too, free tier)
-
-**[DEPLOY.md](DEPLOY.md) walks through this from making the account onwards.**
-The short version, once you have a Cloudflare login:
-
-```bash
-cd worker
-npx wrangler login
-npx wrangler kv namespace create CHOUETTE   # paste the printed id into wrangler.toml
-npx wrangler deploy
-```
-
-That single Worker serves the game *and* the API from one origin, so there is
-nothing to configure: open the URL it prints and everything works. If you host
-the game's files somewhere else instead (GitHub Pages, a school server), set
-`syncUrl` in `js/config.js` to the Worker's URL.
-
-The free plan allows 1,000 KV writes a day. Joining a class and finishing a
-piece of homework each cost one write; ordinary practice games are batched, so a
-keen student cannot spend the whole class's budget.
-
-### What is stored, and what is not
-
-| Stored on the server | Never stored |
-| --- | --- |
-| Class code, name, level, assignments | Passwords — there are none |
-| The teacher's display name | Email addresses |
-| A student's display name (a first name is enough) | Last names, unless typed in |
-| XP and which assignments are done | Answers, mistakes, or play history |
-| A random anonymous id per student | Anything identifying a device |
-
-The teacher's key is stored only as a SHA-256 hash and is never returned by the
-API; it lives on the teacher's device. Knowing a class code lets you see that
-class's assignments and add your own row — it is a classroom code, not a
-password — but reading the roster or editing the class needs that key.
-**Élèves → supprimer la classe** deletes the class and every student row under
-it. If any of that is more than your school is comfortable with, don't deploy
-the Worker: the app is fully usable without it.
 
 ---
 
@@ -375,50 +284,6 @@ teacher's, unless they choose to say.
 
 ---
 
-## The games
-
-| | Game | What it drills | Format |
-| --- | --- | --- | --- |
-| ⚡ | **Éclair Rapide** | Vocabulary both directions | 70 s sprint, right answers add time |
-| ⚔️ | **Duel Le / La** | Noun gender | 45 s, two buttons, ← and → keys |
-| 🌀 | **Conjugaison Rush** | Conjugation, typed | 90 s, accent helper keys |
-| 🎯 | **Accent Attack** | Spelling and accents | 50 s, four near-identical spellings |
-| 🧩 | **Construis la Phrase** | Word order and syntax | 8 sentences, tap the tiles, decoys included |
-| 🎧 | **Écoute Bien** | Listening | 10 clips read aloud in French |
-| 🃏 | **Marché Mémoire** | Vocabulary recall | Memory grid, clear it for a time bonus |
-| 🐲 | **Le Défi du Boss** | Everything at once | 3 hearts vs. a boss, 12 s per question |
-| 🎤 | **Parle Fort !** | Pronunciation, out loud | 8 words, the browser listens — only where it can |
-| 🔁 | **Révision Ciblée** | *Your* mistakes only | Unlocks once you've missed a few words, +25 % XP |
-
-**Révision Ciblée** is the quiet workhorse: the game remembers every word you
-get wrong and builds a private deck out of them.
-
-### Parle Fort !, and what it honestly can't do
-
-Speaking is the hardest thing for a French teacher to assign at scale, because
-it needs a listener. The browser has one — `SpeechRecognition` set to `fr-FR`,
-free, no key, no service, nothing we send anywhere.
-
-It is also the least reliable thing in the app, so it is fenced off accordingly:
-
-* **Firefox has no recogniser**, and Chrome's sends the audio to Google's
-  servers, so it needs a network. When either is true the game is simply not on
-  the map — the same posture as the French voice, which stays silent rather than
-  read French in an English accent. Open it directly anyway and it says which
-  browsers can do it instead of showing a microphone that does nothing.
-* **It can never be set as homework.** `App.Games.assignable()` drops anything
-  declaring `needs`, and a test fails if that ever stops being true. Nobody's
-  mark should depend on whether their browser can listen.
-* **It is generous on purpose.** The article is optional, because a recogniser
-  drops *le* as often as a student does and neither is a pronunciation mistake.
-  A silent final `-s` is ignored, because "le livre" and "le livres" are the
-  same sound and the recogniser is picking a spelling, not judging a mouth. A
-  near miss gets a retry before it counts. And a long word forgives one letter
-  while a short one forgives none — *vert* and *vent* are two different words.
-
-What it cannot do is tell true homophones apart, which no amount of code will
-fix. It is practice, not an examiner.
-
 ### Bosses scale with the class level
 
 | Level | Boss |
@@ -446,6 +311,114 @@ weighted toward the current year.
 
 **In the box:** 334 vocabulary entries · 60 verbs across 10 tenses ·
 60 sentences · 50 grammar questions with explanations.
+
+---
+
+## The games
+
+| | Game | What it drills | Format |
+| --- | --- | --- | --- |
+| ⚡ | **Éclair Rapide** | Vocabulary both directions | 70 s sprint, right answers add time |
+| ⚔️ | **Duel Le / La** | Noun gender | 45 s, two buttons, ← and → keys |
+| 🌀 | **Conjugaison Rush** | Conjugation, typed | 90 s, accent helper keys |
+| 🎯 | **Accent Attack** | Spelling and accents | 50 s, four near-identical spellings |
+| 🧩 | **Construis la Phrase** | Word order and syntax | 8 sentences, tap the tiles, decoys included |
+| 🎧 | **Écoute Bien** | Listening | 10 clips read aloud in French |
+| 🃏 | **Marché Mémoire** | Vocabulary recall | Memory grid, clear it for a time bonus |
+| 🐲 | **Le Défi du Boss** | Everything at once | 3 hearts vs. a boss, 12 s per question |
+| 🎤 | **Parle Fort !** | Pronunciation, out loud | 8 words, the browser listens — only where it can |
+| 🔁 | **Révision Ciblée** | *Your* mistakes only | Unlocks once you've missed a few words, +25 % XP |
+
+**Révision Ciblée** is the quiet workhorse: the game remembers every word you
+get wrong and builds a private deck out of them.
+
+# The boring stuff... (coding)
+If you're just using the app for learning/teaching French, ignore this section.
+If you want to understand how the coding works, proceed and knock yourself out.
+
+### Parle Fort !, and what it honestly can't do
+
+Speaking is the hardest thing for a French teacher to assign at scale, because
+it needs a listener. The browser has one — `SpeechRecognition` set to `fr-FR`,
+free, no key, no service, nothing we send anywhere.
+
+It is also the least reliable thing in the app, so it is fenced off accordingly:
+
+* **Firefox has no recogniser**, and Chrome's sends the audio to Google's
+  servers, so it needs a network. When either is true the game is simply not on
+  the map — the same posture as the French voice, which stays silent rather than
+  read French in an English accent. Open it directly anyway and it says which
+  browsers can do it instead of showing a microphone that does nothing.
+* **It can never be set as homework.** `App.Games.assignable()` drops anything
+  declaring `needs`, and a test fails if that ever stops being true. Nobody's
+  mark should depend on whether their browser can listen.
+* **It is generous on purpose.** The article is optional, because a recogniser
+  drops *le* as often as a student does and neither is a pronunciation mistake.
+  A silent final `-s` is ignored, because "le livre" and "le livres" are the
+  same sound and the recogniser is picking a spelling, not judging a mouth. A
+  near miss gets a retry before it counts. And a long word forgives one letter
+  while a short one forgives none — *vert* and *vent* are two different words.
+
+What it cannot do is tell true homophones apart, which no amount of code will
+fix. It is practice, not an examiner.
+
+## Deploying (optional, for live classes)
+
+Everything above works offline. Sync adds one thing: short codes that work
+anywhere, and rosters that fill in by themselves.
+
+### On your own machine or the classroom network
+
+Already done — `npm start` serves the game *and* the sync API, storing classes
+in `.chouette-data.json` next to the project:
+
+```bash
+npm start            # http://localhost:8080
+```
+
+Students on the same Wi-Fi open `http://<your-ip>:8080` and join with the short
+code. Nothing leaves the building. The catch is that it only works while that
+machine is on and reachable, and some school networks stop devices talking to
+each other.
+
+### On Cloudflare (works from home too, free tier)
+
+**[DEPLOY.md](DEPLOY.md) walks through this from making the account onwards.**
+The short version, once you have a Cloudflare login:
+
+```bash
+cd worker
+npx wrangler login
+npx wrangler kv namespace create CHOUETTE   # paste the printed id into wrangler.toml
+npx wrangler deploy
+```
+
+That single Worker serves the game *and* the API from one origin, so there is
+nothing to configure: open the URL it prints and everything works. If you host
+the game's files somewhere else instead (GitHub Pages, a school server), set
+`syncUrl` in `js/config.js` to the Worker's URL.
+
+The free plan allows 1,000 KV writes a day. Joining a class and finishing a
+piece of homework each cost one write; ordinary practice games are batched, so a
+keen student cannot spend the whole class's budget.
+
+### What is stored, and what is not
+
+| Stored on the server | Never stored |
+| --- | --- |
+| Class code, name, level, assignments | Passwords — there are none |
+| The teacher's display name | Email addresses |
+| A student's display name (a first name is enough) | Last names, unless typed in |
+| XP and which assignments are done | Answers, mistakes, or play history |
+| A random anonymous id per student | Anything identifying a device |
+
+The teacher's key is stored only as a SHA-256 hash and is never returned by the
+API; it lives on the teacher's device. Knowing a class code lets you see that
+class's assignments and add your own row — it is a classroom code, not a
+password — but reading the roster or editing the class needs that key.
+**Élèves → supprimer la classe** deletes the class and every student row under
+it. If any of that is more than your school is comfortable with, don't deploy
+the Worker: the app is fully usable without it.
 
 ---
 
@@ -523,7 +496,8 @@ scoring, combos, timers, XP, quests, badges and the results screen.
 
 ## Adding your own content
 
-Everything a teacher would want to edit lives in `js/data/` as plain arrays.
+Everything a teacher would want to edit lives in `js/data/` as plain arrays, so
+here's for if you don't want to use the in-app creator, or are feeling tech-savvy.
 
 ```js
 // js/data/vocab.js — nouns are stored WITHOUT their article
