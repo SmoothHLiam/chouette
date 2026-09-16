@@ -51,6 +51,14 @@
    * people. Resolved per request rather than cached: Firebase rotates these
    * roughly hourly and refreshes them behind `token()`.
    */
+  /* Accounts, and /api/classes/mine with them, arrived in 1.1.0. */
+  function accountsSupported(version) {
+    var parts = String(version || "0").split(".");
+    var major = parseInt(parts[0], 10) || 0;
+    var minor = parseInt(parts[1], 10) || 0;
+    return major > 1 || (major === 1 && minor >= 1);
+  }
+
   function bearer() {
     if (!App.Auth || !App.Auth.signedIn()) return Promise.resolve("");
     return App.Auth.token().catch(function () { return ""; });
@@ -234,16 +242,50 @@
       return chain.then(function () {
         return App.Sync.myClasses();
       }).then(function (res) {
-        if (!res.ok) return { ok: false, claimed: claimed, added: 0 };
+        /* A failure here is NOT "you have no classes". Getting those two
+         * confused is what makes a teacher sign in on a new laptop, see an
+         * empty dashboard, and build everything a second time. */
+        if (!res.ok) {
+          return App.Sync.whyNoClasses(res).then(function (reason) {
+            return { ok: false, claimed: claimed, added: 0, found: 0,
+                     error: reason.error, stale: reason.stale };
+          });
+        }
         var added = 0;
-        (res.classes || []).forEach(function (data) {
+        var classes = res.classes || [];
+        classes.forEach(function (data) {
           if (!App.School.get(data.code)) added++;
           App.School.adoptCloud(data, true);
         });
-        return { ok: true, claimed: claimed, added: added };
+        return { ok: true, claimed: claimed, added: added,
+                 found: classes.length, classes: classes };
       }).catch(function () {
-        return { ok: false, claimed: claimed, added: 0 };
+        return { ok: false, claimed: claimed, added: 0, found: 0,
+                 error: "Serveur injoignable." };
       });
+    },
+
+    /**
+     * Why the class list could not be fetched, in words worth showing.
+     *
+     * The answer that matters most: a sync service deployed before accounts
+     * existed has no idea what /api/classes/mine is, and rejects it with
+     * something about an invalid class code. That is not a sentence anybody
+     * can act on, so it is translated into the one thing that fixes it.
+     */
+    whyNoClasses: function (res) {
+      var fallback = { error: res.error || "Impossible de récupérer tes classes.", stale: false };
+      if (res.offline) return Promise.resolve({ error: "Serveur injoignable.", stale: false });
+      return request("GET", "/api/health").then(function (health) {
+        if (!health.ok) return fallback;
+        var version = String((health.version || health.service && health.version) || "0");
+        if (accountsSupported(version)) return fallback;
+        return {
+          stale: true,
+          error: "Le service de synchronisation n'est pas à jour : redéploie le " +
+                 "Worker (npx wrangler deploy) pour que les comptes fonctionnent."
+        };
+      }, function () { return fallback; });
     },
 
     /** Every class this account owns — the point of signing in elsewhere. */

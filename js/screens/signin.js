@@ -225,11 +225,32 @@
     App.State.save();
 
     return App.Sync.syncAccount().then(function (res) {
-      if (res.added) {
-        App.UI.toast(res.added + " classe" + (res.added > 1 ? "s" : "") + " retrouvée" +
-          (res.added > 1 ? "s" : "") + ".", "☁️", "good");
+      if (res.found) {
+        /* Their own classes carry the level they teach, so asking again is
+         * asking a returning teacher to re-answer a question they already
+         * answered — on the very screen that is supposed to prove the account
+         * remembered them. */
+        adoptLevel();
+        App.UI.toast(res.found + " classe" + (res.found > 1 ? "s" : "") + " retrouvée" +
+          (res.found > 1 ? "s" : "") + ".", "☁️", "good");
+      } else if (!res.ok) {
+        /* Never land silently on an empty dashboard after a failed fetch: the
+         * teacher cannot tell that apart from having no classes, and will
+         * build the whole term again. */
+        App.UI.toast(res.error || "Tes classes n'ont pas pu être récupérées.",
+          res.stale ? "🛠️" : "⚠️");
       }
       App.Router.go(App.State.profile.level ? "teacher" : "level");
     });
   };
+
+  /** Takes the level from a class this teacher already runs. */
+  function adoptLevel() {
+    if (App.State.profile.level) return;
+    var mine = App.School.all().filter(function (k) { return k.owned; });
+    if (!mine.length) return;
+    App.State.profile.level = mine[0].level || 1;
+    App.State.setClass(mine[0].code);
+    App.State.save();
+  }
 })(typeof window !== "undefined" ? window : globalThis);
