@@ -186,6 +186,46 @@ Now the real test, which takes a minute:
   Installed, the games work with no signal at all — only joining a class and
   handing homework in need the network.
 
+### Redeploying from a different computer
+
+Nothing has to be set up again. The KV namespace id lives in
+`worker/wrangler.toml`, which is in the repository — so a new machine needs the
+code and a Cloudflare login, and that is all. (The login itself is per-machine:
+Wrangler keeps it in `worker/.wrangler/`, which is deliberately not committed.)
+
+```bash
+git clone https://github.com/SmoothHLiam/tech-ed-project.git
+cd tech-ed-project
+git checkout claude/french-learning-game-k8giiy
+
+cd worker
+npx wrangler login      # opens a browser; approve, then come back
+npx wrangler deploy
+```
+
+Wrangler needs **Node 22 or newer** — most Linux distributions still package
+18 or 20, so `node --version` is worth a glance before you start.
+
+**On a machine with no browser** (a server over SSH), `wrangler login` cannot
+finish, because it waits for a redirect back to `localhost`. Use a token
+instead: create one at
+<https://dash.cloudflare.com/profile/api-tokens> from the **Edit Cloudflare
+Workers** template, then
+
+```bash
+CLOUDFLARE_API_TOKEN=your_token_here npx wrangler deploy
+```
+
+Check it took by asking the Worker what it is running:
+
+```bash
+curl https://chouette.chouette.workers.dev/api/health
+```
+
+`"version":"1.1.0"` or higher means teacher accounts are live. `"1.0.0"` is the
+build from before accounts existed, and signing in on a second device will find
+nothing.
+
 ### Redeploying after a change
 
 Any time you edit the game, run `npx wrangler deploy` again from the `worker`
