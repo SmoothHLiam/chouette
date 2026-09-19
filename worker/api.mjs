@@ -21,7 +21,7 @@
 
 import { verifyFirebaseToken } from "./jwt.mjs";
 
-export const VERSION = "1.1.0";
+export const VERSION = "1.2.0";
 
 /* Same alphabet as the client: no 0/O and no 1/I/L, because a class code gets
  * read aloud and copied off a whiteboard. */
@@ -38,8 +38,15 @@ const LIMITS = {
   done: 200,
   lists: 20,
   listItems: 200,
-  listField: 120
+  listField: 120,
+  badges: 60,
+  weak: 120
 };
+
+/* How long a student's own code is. Eight characters of the class alphabet is
+ * about 8.5 × 10^11 combinations, and you need the class code as well to use
+ * one, so it cannot be guessed from outside the room. */
+const PASS_LENGTH = 8;
 
 /* ----------------------------------------------------------------- utils -- */
 
@@ -75,6 +82,20 @@ function randomCode() {
   let out = "";
   for (let i = 0; i < 6; i++) out += ALPHABET[bytes[i] % ALPHABET.length];
   return out;
+}
+
+/* A student's own code, in the same no-ambiguous-characters alphabet as a
+ * class code: it gets read off a screen and typed on a phone. */
+function randomPass() {
+  const bytes = new Uint8Array(PASS_LENGTH);
+  crypto.getRandomValues(bytes);
+  let out = "";
+  for (let i = 0; i < PASS_LENGTH; i++) out += ALPHABET[bytes[i] % ALPHABET.length];
+  return out;
+}
+
+function normalizePass(value) {
+  return String(value || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
 }
 
 function randomToken() {
@@ -138,6 +159,17 @@ async function isTeacherOf(klass, token, who) {
   /* An unowned class has no uid to match. Guard it explicitly: comparing
    * undefined to a missing uid must never come out true. */
   return !!(who && who.uid && klass.ownerUid && klass.ownerUid === who.uid);
+}
+
+/* A list of short strings — badge ids, or the words somebody keeps missing. */
+function sanitizeIdList(list, max, width) {
+  if (!Array.isArray(list)) return [];
+  const out = [];
+  for (const entry of list.slice(0, max)) {
+    const value = clean(entry, width || 40);
+    if (value) out.push(value);
+  }
+  return out;
 }
 
 /* Only the fields we are willing to store, at the sizes we are willing to store. */
@@ -418,21 +450,94 @@ export async function handleApi(request, store, options = {}) {
       }
       if (tombstone) await store.delete("gone:" + code + ":" + studentId);
 
-      const done = {};
+      /* The code is minted once and then kept. Regenerating it on every push
+       * would quietly invalidate whatever the student wrote down. */
+      const existing = (await store.get("student:" + code + ":" + studentId)) || {};
+      const pass = existing.pass || randomPass();
+
+      /*
+       * Merge, never overwrite. Two reasons, both of which bite in a real
+       * classroom now that a student can pick up on a second device:
+       *
+       *  · A push that does not mention a field must not erase it. An older
+       *    copy of the app — a tab left open, a service worker still serving
+       *    yesterday's script — sends only name, xp and done, and would
+       *    otherwise wipe a term's badges on its next heartbeat.
+       *  · Two devices are now normal. Whichever pushes last is not
+       *    necessarily the one that knows most, so anything that only ever
+       *    goes up is kept at its highest rather than replaced.
+       */
+      const keep = (key, value) => (value === undefined ? existing[key] : value);
+      const number = (value, cap) =>
+        value === undefined ? undefined : Math.max(0, Math.min(parseInt(value, 10) || 0, cap));
+      const highest = (key, value) => Math.max(existing[key] || 0, value === undefined ? 0 : value);
+
+      /* Finishing homework is not undoable by a device that never saw it. */
+      const done = Object.assign({}, existing.done || {});
       const source = data.done && typeof data.done === "object" ? data.done : {};
       Object.keys(source).slice(0, LIMITS.done).forEach((key) => {
         const id = clean(key, 40);
-        if (id) done[id] = Math.max(0, Math.min(parseInt(source[key], 10) || 0, 1e7));
+        if (!id) return;
+        const score = Math.max(0, Math.min(parseInt(source[key], 10) || 0, 1e7));
+        done[id] = Math.max(done[id] || 0, score);
       });
+
+      /* Badges are earned, so they accumulate rather than being replaced. */
+      const badges = data.badges === undefined
+        ? (existing.badges || [])
+        : sanitizeIdList(
+            (existing.badges || []).concat(sanitizeIdList(data.badges, LIMITS.badges))
+              .filter((id, i, all) => all.indexOf(id) === i),
+            LIMITS.badges);
 
       await store.put("student:" + code + ":" + studentId, {
         id: studentId,
-        name: clean(data.name, LIMITS.studentName) || "Élève",
-        xp: Math.max(0, Math.min(parseInt(data.xp, 10) || 0, 1e7)),
+        pass,
+        name: clean(data.name, LIMITS.studentName) || existing.name || "Élève",
+        /* Only ever upward: XP, croissants and a best streak are never lost. */
+        xp: highest("xp", number(data.xp, 1e7)),
+        coins: highest("coins", number(data.coins, 1e7)),
+        bestStreak: highest("bestStreak", number(data.bestStreak, 10000)),
+        /* A current streak genuinely can fall to zero, so the newest word on
+         * it wins — but only if there is one. */
+        streak: keep("streak", number(data.streak, 10000)) || 0,
+        lastPlayed: keep("lastPlayed", data.lastPlayed === undefined
+          ? undefined : (data.lastPlayed ? clean(data.lastPlayed, 10) : null)) || null,
+        avatar: keep("avatar", data.avatar === undefined ? undefined : clean(data.avatar, 8)) || "",
+        level: keep("level", number(data.level, 5)) || 0,
+        badges,
+        weak: keep("weak", data.weak === undefined
+          ? undefined : sanitizeIdList(data.weak, LIMITS.weak, LIMITS.listField)) || [],
         done,
         at: Date.now()
       });
-      return json({ ok: true });
+      return json({ ok: true, pass });
+    }
+
+    /* POST /api/classes/:code/resume — a student picking up on a new device.
+     *
+     * The credential is the pair: the class code they joined with, and the
+     * code the app gave them. Neither alone is any use, and the code is only
+     * ever good for this one class — it is not an account and unlocks nothing
+     * outside the room.
+     *
+     * No token, deliberately. A student proving who they are IS the point,
+     * and they have no teacher token to offer. */
+    if (sub === "/resume" && method === "POST") {
+      if (!klass) return fail(404, "Aucune classe avec ce code.");
+      const { data, error } = await readBody(request);
+      if (error) return fail(400, error);
+      const pass = normalizePass(data.pass);
+      if (pass.length !== PASS_LENGTH) return fail(400, "Code élève invalide.");
+
+      const rows = await store.list("student:" + code + ":");
+      const row = rows.map((r) => r.value)
+        .find((value) => value && value.pass && normalizePass(value.pass) === pass);
+      /* The same answer whether the code is wrong or the class is empty: no
+       * confirming for a stranger that a code exists somewhere. */
+      if (!row) return fail(404, "Aucun élève avec ce code dans cette classe.");
+
+      return json({ ok: true, student: row, class: publicClass(klass) });
     }
 
     /* GET /api/classes/:code/membership?studentId=… — "am I still in this

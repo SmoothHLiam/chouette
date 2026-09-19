@@ -82,7 +82,36 @@ minors, and nothing a student does here needs an email address.
 * Switch accounts any time from **Profil → Compte**.
 
 Nothing about a student is uploaded except what their teacher already sees: a
-display name, XP, and which homework is done.
+display name, their XP, streak and badges, and which homework is done.
+
+### The student's code
+
+A student on a school Chromebook in the morning and a phone in the evening is
+the same student, and shouldn't have to start again. So once they join a class
+the app gives them an eight-character code — `Q2GE–6X7W` — shown in
+**Réglages → Ton code élève**, hidden behind an eye until they ask for it.
+
+On another device, **J'ai déjà un code élève** on the join screen takes that
+code plus their class code and gives them back their XP, croissants, streak,
+badges and even the words they keep getting wrong.
+
+Some deliberate limits:
+
+* **It is not an account.** No email, no password, nothing new stored about
+  them — the code just names a row that already existed, keyed by the random id
+  every player has always had.
+* **It is good for one class and nothing else.** A code from another class does
+  not work, and it cannot read a roster, edit a class or delete anything.
+* **It is not a secret either.** Whoever holds it is that student, which is why
+  it is masked by default and why it unlocks only a game profile. For minors
+  that is a better trade than real credentials, but it is a trade.
+* **Teachers can read it back**, from the roster, behind the same eye — because
+  children lose things, and the alternative is losing a term's progress.
+
+Progress writes **merge** rather than overwrite, which matters once two devices
+are in play: XP, croissants and best streak only ever go up, badges accumulate,
+and homework cannot be un-handed-in by a device that never saw it. An older copy
+of the app that knows nothing of these fields cannot wipe them.
 
 ### Teacher accounts
 

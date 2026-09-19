@@ -37,6 +37,7 @@
       name: "",
       classCode: null,
       syncId: null,
+      studentCode: null,
       level: null,
       xp: 0,
       coins: 0,
@@ -178,6 +179,16 @@
 
     /** A stable, anonymous id so a student's roster row is theirs alone.
      *  It is random — it carries no name, device or account information. */
+    /** The code this student types to pick up on another device. */
+    studentCode: function () { return profile.studentCode || ""; },
+
+    setStudentCode: function (value) {
+      var code = String(value || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+      if (!code || profile.studentCode === code) return;
+      profile.studentCode = code;
+      save();
+    },
+
     syncId: function () {
       if (!profile.syncId) {
         profile.syncId = (global.crypto && global.crypto.randomUUID)

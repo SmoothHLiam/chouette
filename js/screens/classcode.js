@@ -33,6 +33,10 @@
     var note = U.el("p", "join-note", "");
     card.appendChild(note);
 
+    /* Coming back rather than arriving. Folded away, because most people
+     * typing on this screen are joining for the first time. */
+    card.appendChild(resumeBlock());
+
     form.addEventListener("submit", function (e) {
       e.preventDefault();
       var typed = input.value;
@@ -110,5 +114,97 @@
     wrap.appendChild(skip);
     host.appendChild(wrap);
     setTimeout(function () { input.focus(); }, 120);
+    /* ------------------------------------------ picking up where you left off */
+    function resumeBlock() {
+      var box = U.el("div", "resume-block");
+      var open = U.el("button", "linkish", "J'ai déjà un code élève");
+      open.type = "button";
+      box.appendChild(open);
+
+      var panel = U.el("div", "resume-panel");
+      panel.hidden = true;
+
+      panel.appendChild(U.el("p", "level-sub",
+        "Entre le code de ta classe et le code élève que l'app t'a donné sur " +
+        "ton autre appareil. Tu retrouveras ton XP, ta série et tes badges."));
+
+      var classInput = U.el("input", "conj-input code-input");
+      classInput.type = "text";
+      classInput.autocomplete = "off";
+      classInput.autocapitalize = "characters";
+      classInput.spellcheck = false;
+      classInput.placeholder = "Code de la classe — ABC-123";
+      classInput.setAttribute("aria-label", "Code de la classe");
+
+      var passWrap = U.el("div", "code-reveal");
+      var passInput = U.el("input", "conj-input code-input");
+      /* A password field so phones stop trying to autocorrect it, and so it is
+       * not readable over a shoulder in a classroom. The eye is why that is
+       * bearable when a typo means "no such student". */
+      passInput.type = "password";
+      passInput.autocomplete = "off";
+      passInput.autocapitalize = "characters";
+      passInput.spellcheck = false;
+      passInput.placeholder = "Ton code élève";
+      passInput.setAttribute("aria-label", "Ton code élève");
+      passWrap.appendChild(passInput);
+      passWrap.appendChild(App.UI.eyeToggle(function (shown) {
+        passInput.type = shown ? "text" : "password";
+      }, { showLabel: "Afficher le code", hideLabel: "Masquer le code" }));
+
+      var go = App.UI.bigButton("Retrouver ma progression", { icon: "↩︎", onClick: submitResume });
+      var says = U.el("p", "join-note", "");
+
+      panel.appendChild(classInput);
+      panel.appendChild(passWrap);
+      panel.appendChild(go);
+      panel.appendChild(says);
+      box.appendChild(panel);
+
+      open.addEventListener("click", function () {
+        App.Sound.click();
+        panel.hidden = !panel.hidden;
+        open.textContent = panel.hidden
+          ? "J'ai déjà un code élève" : "← Rejoindre une classe à la place";
+        if (!panel.hidden) setTimeout(function () { classInput.focus(); }, 60);
+      });
+
+      function say(text, kind) {
+        says.textContent = text || "";
+        says.className = "join-note " + (kind || "");
+      }
+
+      function submitResume() {
+        if (!App.Sync.available()) {
+          say("Il faut une connexion pour retrouver ta progression.", "bad");
+          return;
+        }
+        if (!classInput.value.trim() || !passInput.value.trim()) {
+          say("Entre les deux codes.", "bad");
+          return;
+        }
+        say("Recherche…");
+        App.Sync.resumeStudent(classInput.value, passInput.value).then(function (res) {
+          if (!res.ok || !res.student) {
+            say(res.error || "Aucun élève avec ce code dans cette classe.", "bad");
+            return;
+          }
+          App.School.adoptCloud(res.class);
+          App.School.restoreStudent(res.student);
+          App.State.setClass(res.class.code);
+          App.State.setStudentCode(res.student.pass || passInput.value);
+          App.Sound.win();
+          App.FX.rain(50);
+          App.UI.toast("Te revoilà, " + (res.student.name || "toi") + " !", "🦉", "good");
+          App.Router.go("home");
+        });
+      }
+
+      panel.addEventListener("keydown", function (e) {
+        if (e.key === "Enter") { e.preventDefault(); submitResume(); }
+      });
+
+      return box;
+    }
   });
 })(typeof window !== "undefined" ? window : globalThis);

@@ -352,3 +352,34 @@ input:focus-visible {
     transition-duration: 0.05ms !important;
   }
 }
+
+/* ------------------------------------------------------------ show/hide -- */
+/* The eye on a masked field. Strokes inherit the text colour so it belongs to
+   whichever skin is on rather than carrying its own palette. */
+.eye-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  opacity: 0.72;
+}
+
+.eye-btn:hover { opacity: 1; background: rgba(255, 255, 255, 0.08); }
+.eye-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.eye-btn svg {
+  width: 20px;
+  height: 20px;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  fill: none;
+}

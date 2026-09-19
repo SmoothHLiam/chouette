@@ -1066,8 +1066,29 @@
         row.appendChild(U.el("span", "record-icon", "🙋"));
         var mid = U.el("div", "record-mid");
         mid.appendChild(U.el("strong", null, student.name));
-        mid.appendChild(U.el("small", null, student.xp + " XP"));
-        row.appendChild(mid);
+        var line = U.el("small", null, student.xp + " XP");
+        mid.appendChild(line);
+        /* Their own code, so you can read it back to whoever lost theirs.
+         * Hidden until asked for: it is the one thing that lets a classmate
+         * be them, and a roster is often on a projector. */
+        if (student.pass) {
+          var codeLine = U.el("small", "record-code");
+          var shown = false;
+          function paintCode() {
+            codeLine.textContent = shown
+              ? "Code élève : " + App.School.prettyPass(student.pass)
+              : "Code élève : ••••–••••";
+          }
+          paintCode();
+          mid.appendChild(codeLine);
+          row.appendChild(mid);
+          row.appendChild(App.UI.eyeToggle(function (on) { shown = on; paintCode(); }, {
+            showLabel: "Afficher le code de " + student.name,
+            hideLabel: "Masquer le code de " + student.name
+          }));
+        } else {
+          row.appendChild(mid);
+        }
         var count = U.el("span", "record-best", student.done + " / " + k.assignments.length);
         if (k.assignments.length && student.done >= k.assignments.length) count.classList.add("all-done");
         row.appendChild(count);

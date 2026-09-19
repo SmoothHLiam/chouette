@@ -31,6 +31,46 @@
     return wrap;
   }
 
+  /* The show/hide eye every password field has. Drawn rather than borrowed:
+   * 👁 renders as a different creature on every platform and as a full-colour
+   * cartoon on some, which is not what a control looks like. These are plain
+   * strokes that take their colour from the text around them. */
+  var EYE = '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true">' +
+    '<path d="M2 12s3.8-6.5 10-6.5S22 12 22 12s-3.8 6.5-10 6.5S2 12 2 12Z"/>' +
+    '<circle cx="12" cy="12" r="3.2"/></svg>';
+
+  var EYE_OFF = '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true">' +
+    '<path d="M9.9 5.7A10.6 10.6 0 0 1 12 5.5c6.2 0 10 6.5 10 6.5a19 19 0 0 1-3.3 4.1"/>' +
+    '<path d="M6.3 7.9A18.6 18.6 0 0 0 2 12s3.8 6.5 10 6.5c1.5 0 2.8-.3 4-.8"/>' +
+    '<path d="M9.8 9.8a3.2 3.2 0 0 0 4.4 4.4"/>' +
+    '<path d="M3.5 3.5l17 17"/></svg>';
+
+  /**
+   * A button that reveals or hides something. `onToggle(shown)` does the
+   * revealing; this only owns the icon and the label screen readers hear.
+   */
+  function eyeToggle(onToggle, opts) {
+    opts = opts || {};
+    var shown = !!opts.shown;
+    var b = U.el("button", "eye-btn");
+    b.type = "button";
+    function paint() {
+      b.innerHTML = shown ? EYE_OFF : EYE;
+      var label = shown ? (opts.hideLabel || "Masquer") : (opts.showLabel || "Afficher");
+      b.setAttribute("aria-label", label);
+      b.setAttribute("aria-pressed", shown ? "true" : "false");
+      b.title = label;
+    }
+    paint();
+    b.addEventListener("click", function () {
+      shown = !shown;
+      paint();
+      if (App.Sound) App.Sound.click();
+      onToggle(shown);
+    });
+    return b;
+  }
+
   function bigButton(label, opts) {
     opts = opts || {};
     var b = U.el("button", "btn " + (opts.variant ? "btn-" + opts.variant : "btn-primary"));
@@ -194,6 +234,7 @@
 
   App.UI = {
     owl: owl,
+    eyeToggle: eyeToggle,
     bigButton: bigButton,
     toast: toast,
     modal: modal,

@@ -319,6 +319,19 @@
       return request("GET", "/api/classes/" + App.School.normalizeCode(code));
     },
 
+    /**
+     * Picks a student's profile back up on a new device.
+     *
+     * The credential is the pair — the class code they joined with and the
+     * code the app gave them — and it is good for that one class only.
+     */
+    resumeStudent: function (classCode, pass) {
+      var code = App.School.normalizeCode(classCode);
+      if (!code) return Promise.resolve({ ok: false, error: "Code de classe manquant." });
+      return request("POST", "/api/classes/" + code + "/resume",
+        { pass: String(pass || "").toUpperCase().replace(/[^A-Z0-9]/g, "") });
+    },
+
     /** "Am I still in this class?" — answered about this student only. */
     checkMembership: function (profile) {
       if (!profile || !profile.classCode) return Promise.resolve({ ok: false, error: "no class" });
@@ -396,6 +409,10 @@
             clearPending(code);
             stamps[code] = Date.now();
             App.State._write(LAST_PUSH_KEY, stamps);
+            /* The server mints this once and then keeps it. Remembering it
+             * here is what lets the student read it off their own settings
+             * screen instead of having to ask their teacher. */
+            if (res.pass) App.State.setStudentCode(res.pass);
           } else {
             markPending(code, payload);
           }

@@ -1010,3 +1010,46 @@ html[data-font="readable"] .paper-doc {
 .auth-note { margin: 0; min-height: 1.2em; font-size: 0.88rem; color: var(--muted); }
 .auth-note.good { color: var(--good); }
 .auth-note.bad { color: var(--bad); }
+
+/* --------------------------------------------------- the student's code -- */
+.code-reveal {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.code-reveal .conj-input { flex: 1; min-width: 0; }
+
+.code-reveal-value {
+  flex: 1;
+  min-width: 0;
+  font: 700 1.15rem/1 var(--font);
+  letter-spacing: 0.14em;
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.07);
+}
+
+/* Masked, the dots want even spacing rather than a code's wide tracking. */
+.code-reveal-value.is-hidden { letter-spacing: 0.22em; opacity: 0.6; }
+
+.resume-block { margin-top: 14px; }
+
+.resume-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 10px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  text-align: left;
+}
+
+.resume-panel .level-sub { margin: 0; font-size: 0.9rem; }
+
+/* The minimal skin is light, so the translucent-white fills above vanish. */
+html[data-skin="minimal"] .code-reveal-value { background: rgba(20, 24, 20, 0.06); }
+html[data-skin="minimal"] .resume-panel { border-top-color: rgba(20, 24, 20, 0.12); }
+html[data-skin="minimal"] .eye-btn:hover { background: rgba(20, 24, 20, 0.07); }
+
+.record-code { opacity: 0.75; letter-spacing: 0.06em; }

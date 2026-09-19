@@ -247,6 +247,137 @@ eq("…the class is gone", (await call("GET", "/api/classes/" + code)).status, 4
 check("…leaving nothing behind in storage",
   [...store._map.keys()].filter((k) => k.includes(code)).length === 0);
 
+/* ================================================ the student's own code === */
+/* What it is for: a student on a school Chromebook in the morning and a phone
+ * in the evening is the same student, without anybody collecting an email. */
+
+const rClass = await call("POST", "/api/classes", { name: "French 2", teacher: "Prof", level: 2 });
+const rCode = rClass.data.class.code;
+const rToken = rClass.data.token;
+
+const firstPush = await call("POST", "/api/classes/" + rCode + "/progress", {
+  studentId: "stu-nour", name: "Nour", xp: 640, coins: 30, streak: 4, bestStreak: 9,
+  level: 2, avatar: "🦊", badges: ["first-win", "streak-3"], weak: ["la fenêtre", "le pain"],
+  done: {}
+});
+eq("a student's first push is accepted", firstPush.status, 200);
+const pass = firstPush.data.pass;
+check("…and hands them a code", typeof pass === "string" && pass.length === 8, JSON.stringify(pass));
+check("…from the unambiguous alphabet", /^[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{8}$/.test(pass), pass);
+
+/* The code must survive. A student writes it down once. */
+const secondPush = await call("POST", "/api/classes/" + rCode + "/progress", {
+  studentId: "stu-nour", name: "Nour", xp: 900, done: {}
+});
+eq("playing again does not change their code", secondPush.data.pass, pass);
+
+/* ---- coming back on another device ------------------------------------- */
+const back = await call("POST", "/api/classes/" + rCode + "/resume", { pass });
+eq("the code brings the student back", back.status, 200);
+eq("…as themselves", back.data.student.id, "stu-nour");
+eq("…with their name", back.data.student.name, "Nour");
+eq("…their XP", back.data.student.xp, 900);
+/* Not just a number: the things that make somebody want to come back. */
+eq("…their streak", back.data.student.streak, 4);
+eq("…their best streak", back.data.student.bestStreak, 9);
+eq("…their croissants", back.data.student.coins, 30);
+eq("…their level", back.data.student.level, 2);
+eq("…their badges", (back.data.student.badges || []).join(","), "first-win,streak-3");
+eq("…and the words they keep missing", (back.data.student.weak || []).join(","), "la fenêtre,le pain");
+eq("…plus the class itself", back.data.class.code, rCode);
+
+/* Typing it in lowercase, or with a dash, is the same code. */
+eq("the code is case-insensitive",
+  (await call("POST", "/api/classes/" + rCode + "/resume", { pass: pass.toLowerCase() })).status, 200);
+eq("…and ignores punctuation people add",
+  (await call("POST", "/api/classes/" + rCode + "/resume",
+    { pass: pass.slice(0, 4) + "-" + pass.slice(4) })).status, 200);
+
+/* ---- a push must never take something away ----------------------------- */
+/* That second push carried only name, xp and done — exactly what an older copy
+ * of the app sends. Everything else has to still be there. */
+const afterThin = await call("POST", "/api/classes/" + rCode + "/resume", { pass });
+eq("an old client's push does not wipe the streak", afterThin.data.student.streak, 4);
+eq("…nor the badges", (afterThin.data.student.badges || []).length, 2);
+eq("…nor the croissants", afterThin.data.student.coins, 30);
+
+/* Two devices are normal now. The last one to speak is not always the one that
+ * knows most, so anything that only goes up stays up. */
+await call("POST", "/api/classes/" + rCode + "/progress", {
+  studentId: "stu-nour", name: "Nour", xp: 100, coins: 1, bestStreak: 1, done: {}
+});
+const afterStale = await call("POST", "/api/classes/" + rCode + "/resume", { pass });
+eq("a stale device cannot lower XP", afterStale.data.student.xp, 900);
+eq("…nor spend croissants it never had", afterStale.data.student.coins, 30);
+eq("…nor forget a best streak", afterStale.data.student.bestStreak, 9);
+
+/* A streak really can break, so the newest word on that one wins. */
+await call("POST", "/api/classes/" + rCode + "/progress", {
+  studentId: "stu-nour", name: "Nour", xp: 900, streak: 0, done: {}
+});
+eq("but a broken streak is allowed to fall",
+  (await call("POST", "/api/classes/" + rCode + "/resume", { pass })).data.student.streak, 0);
+
+/* Homework stays handed in, whichever device remembers it. */
+const hw = await call("POST", "/api/classes/" + rCode + "/progress", {
+  studentId: "stu-nour", name: "Nour", xp: 900, done: { "d-one": 500 }
+});
+eq("homework is recorded", hw.status, 200);
+await call("POST", "/api/classes/" + rCode + "/progress", {
+  studentId: "stu-nour", name: "Nour", xp: 900, done: { "d-two": 300 }
+});
+const bothDone = await call("POST", "/api/classes/" + rCode + "/resume", { pass });
+eq("a device that never saw an assignment cannot un-hand it in",
+  Object.keys(bothDone.data.student.done).sort().join(","), "d-one,d-two");
+eq("…and keeps the better score", bothDone.data.student.done["d-one"], 500);
+
+/* New badges add to the old ones rather than replacing them. */
+await call("POST", "/api/classes/" + rCode + "/progress", {
+  studentId: "stu-nour", name: "Nour", xp: 900, badges: ["boss-1"], done: {}
+});
+const allBadges = (await call("POST", "/api/classes/" + rCode + "/resume", { pass }))
+  .data.student.badges;
+eq("badges accumulate", allBadges.slice().sort().join(","), "boss-1,first-win,streak-3");
+check("…without duplicating", new Set(allBadges).size === allBadges.length, allBadges.join(","));
+
+/* ---- and what it must NOT do ------------------------------------------- */
+eq("a wrong code gets nothing",
+  (await call("POST", "/api/classes/" + rCode + "/resume", { pass: "ZZZZZZZZ" })).status, 404);
+eq("…and neither does a short one",
+  (await call("POST", "/api/classes/" + rCode + "/resume", { pass: "ABC" })).status, 400);
+eq("…nor an empty one",
+  (await call("POST", "/api/classes/" + rCode + "/resume", {})).status, 400);
+
+/* The pair is the credential. A code from one class is useless in another,
+ * which is what keeps it worthless to anyone outside that room. */
+const otherClass = await call("POST", "/api/classes", { name: "Autre", teacher: "Prof", level: 1 });
+eq("a code from another class does not work here",
+  (await call("POST", "/api/classes/" + otherClass.data.class.code + "/resume", { pass })).status, 404);
+
+/* It is a resume code, not an account: it unlocks nothing a teacher holds. */
+eq("a student code cannot read the roster",
+  (await call("GET", "/api/classes/" + rCode + "/roster?token=" + pass)).status, 403);
+eq("…nor edit the class",
+  (await call("PUT", "/api/classes/" + rCode, { name: "Hijacked", token: pass })).status, 403);
+eq("…nor delete it",
+  (await call("DELETE", "/api/classes/" + rCode, { token: pass })).status, 403);
+
+/* The teacher can read it back, because children lose things. */
+const rRoster = await call("GET", "/api/classes/" + rCode + "/roster?token=" + rToken);
+eq("the teacher's roster carries each code", rRoster.data.students[0].pass, pass);
+
+/* But nobody else can: the class code alone still reveals no students. */
+const publicView = await call("GET", "/api/classes/" + rCode);
+check("the public class view lists no students at all",
+  !JSON.stringify(publicView.data).includes("stu-nour") &&
+  !JSON.stringify(publicView.data).includes(pass),
+  JSON.stringify(publicView.data).slice(0, 200));
+
+/* A removed student's code stops working, like everything else of theirs. */
+await call("DELETE", "/api/classes/" + rCode + "/students/stu-nour", { token: rToken });
+eq("a removed student's code no longer resumes",
+  (await call("POST", "/api/classes/" + rCode + "/resume", { pass })).status, 404);
+
 /* ==================================================== teacher accounts === */
 /* Everything above this line ran without a single token, and passed. That is
  * the point: accounts are additive, and a teacher who never signs in keeps the

@@ -64,6 +64,14 @@
     return String(code || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
   }
 
+  /** A student's code, split so it can be read aloud: 7K3P–9M2X. */
+  function prettyPass(code) {
+    var flat = String(code || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+    if (flat.length < 6) return flat;
+    var half = Math.ceil(flat.length / 2);
+    return flat.slice(0, half) + "–" + flat.slice(half);
+  }
+
   function pretty(code) {
     var flat = normalizeCode(code);
     return flat.length === 6 ? flat.slice(0, 3) + "-" + flat.slice(3) : flat;
@@ -469,8 +477,55 @@
       studentId: App.State.syncId ? App.State.syncId() : (profile.syncId || "anon"),
       name: profile.name || "Élève",
       xp: profile.xp,
+      /* Everything below rides along in a write that was happening anyway, so
+       * a student picking up on another device gets their streak, their
+       * croissants and their badges back — not just a number. Free against the
+       * daily write budget, and the difference between "my progress is here"
+       * and "some of it is". */
+      coins: profile.coins || 0,
+      streak: profile.streak || 0,
+      bestStreak: profile.bestStreak || 0,
+      lastPlayed: profile.lastPlayed || null,
+      avatar: profile.avatar || "",
+      level: profile.level || 0,
+      badges: Object.keys(profile.achievements || {}),
+      weak: App.State.weakKeys ? App.State.weakKeys(60) : [],
       done: done
     };
+  }
+
+  /**
+   * The other direction: a student's server row becomes their profile again.
+   * Only ever additive — a device that already knows more keeps what it knows,
+   * because the row is a backup of this student, not an authority over them.
+   */
+  function restoreStudent(row) {
+    if (!row || !row.id) return false;
+    var profile = App.State.profile;
+    profile.syncId = row.id;
+    if (row.name) profile.name = row.name;
+    profile.xp = Math.max(profile.xp || 0, row.xp || 0);
+    profile.coins = Math.max(profile.coins || 0, row.coins || 0);
+    profile.bestStreak = Math.max(profile.bestStreak || 0, row.bestStreak || 0);
+    if (row.streak > (profile.streak || 0)) profile.streak = row.streak;
+    if (row.lastPlayed && !profile.lastPlayed) profile.lastPlayed = row.lastPlayed;
+    if (row.avatar) profile.avatar = row.avatar;
+    if (row.level) profile.level = row.level;
+
+    profile.achievements = profile.achievements || {};
+    (row.badges || []).forEach(function (id) {
+      if (!profile.achievements[id]) profile.achievements[id] = new Date().toISOString();
+    });
+
+    /* The words they keep missing, so Révision Ciblée is theirs from the
+     * first round rather than having to learn them all over again. */
+    profile.mastery = profile.mastery || {};
+    (row.weak || []).forEach(function (key) {
+      if (!profile.mastery[key]) profile.mastery[key] = { r: 0, w: 1, last: Date.now() };
+    });
+
+    App.State.save();
+    return true;
   }
 
   /** What a student sends back so the teacher can mark the work off by hand. */
@@ -543,6 +598,8 @@
       entry.name = row.name || entry.name;
       entry.xp = Math.max(entry.xp || 0, row.xp || 0);
       entry.lastSeen = row.at || Date.now();
+      /* Kept so the teacher can read a lost code back to its owner. */
+      if (row.pass) entry.pass = row.pass;
       Object.keys(row.done || {}).forEach(function (aid) {
         entry.done[aid] = { at: row.at || Date.now(), score: row.done[aid] };
       });
@@ -584,6 +641,7 @@
         key: k,
         name: entry.name,
         xp: entry.xp || 0,
+        pass: entry.pass || "",
         done: Object.keys(entry.done || {}).length,
         lastSeen: entry.lastSeen || 0
       };
@@ -615,6 +673,7 @@
     importShare: importShare,
     progressCode: progressCode,
     progressPayload: progressPayload,
+    restoreStudent: restoreStudent,
     adoptCloud: adoptCloud,
     signature: signature,
     pickSignature: pickSignature,
@@ -625,6 +684,7 @@
     importProgress: importProgress,
     roster: roster,
     pretty: pretty,
+    prettyPass: prettyPass,
     put: put,
     normalizeCode: normalizeCode,
     progressKey: progressKey

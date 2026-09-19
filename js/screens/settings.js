@@ -155,6 +155,11 @@
     wrap.appendChild(U.el("h3", "shop-head", "Compte"));
     var account = U.el("div", "settings");
 
+    /* A student's way of being the same person on two devices. Not an
+     * account: no email, no password, and it is good for their class and
+     * nothing else. */
+    if (p.role !== "teacher") account.appendChild(studentCodeBlock());
+
     /* Only teachers ever see this: a student's account is a name on this
      * device and nothing else, which is the point. */
     if (p.role === "teacher" && App.Auth.supported()) {
@@ -328,6 +333,62 @@
           "« Installer » ou « Ajouter à l'écran d'accueil »."
         : "Ouverte depuis un fichier local, l'app marche déjà entièrement hors " +
           "ligne. Passe par une adresse http(s) pour pouvoir aussi l'installer."));
+      return box;
+    }
+
+    /* ------------------------------------------------- the student's code */
+    function studentCodeBlock() {
+      var box = U.el("div", "setting-block");
+      box.appendChild(U.el("span", "setting-label", "Ton code élève"));
+
+      var code = App.State.studentCode();
+      if (!code) {
+        /* Joining already sends a first progress push, which is what mints
+         * the code — so having a class but no code means that push has not
+         * got through yet. */
+        box.appendChild(U.el("small", "setting-hint", p.classCode
+          ? "Ton code arrive dès que l'app a pu joindre le serveur de ta classe."
+          : "Rejoins une classe : ton code élève apparaîtra ici."));
+        return box;
+      }
+
+      var row = U.el("div", "code-reveal");
+      var value = U.el("strong", "code-reveal-value");
+      var shown = false;
+
+      /* Hidden by default. It is not a password, but it is the one thing that
+       * lets somebody else be you in this class, so it should not be sitting
+       * in the open on a screen a classmate can read over your shoulder. */
+      function paint() {
+        value.textContent = shown ? App.School.prettyPass(code) : "••••–••••";
+        value.classList.toggle("is-hidden", !shown);
+      }
+      paint();
+
+      row.appendChild(value);
+      row.appendChild(App.UI.eyeToggle(function (on) {
+        shown = on;
+        paint();
+      }, { showLabel: "Afficher ton code élève", hideLabel: "Masquer ton code élève" }));
+
+      var copy = U.el("button", "icon-btn", "📋");
+      copy.title = "Copier ton code";
+      copy.setAttribute("aria-label", "Copier ton code élève");
+      copy.addEventListener("click", function () {
+        App.Sound.click();
+        App.UI.copy(code, "Code élève copié");
+      });
+      row.appendChild(copy);
+      box.appendChild(row);
+
+      box.appendChild(U.el("small", "setting-hint",
+        "Entre ce code — avec le code de ta classe — sur un autre appareil pour " +
+        "retrouver ton XP, ta série et tes badges. Garde-le pour toi : il ne " +
+        "sert qu'à cette classe, mais il te remplace."));
+
+      var lost = U.el("small", "setting-hint",
+        "Perdu ? Ton professeur peut te le redonner.");
+      box.appendChild(lost);
       return box;
     }
 
