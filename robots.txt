@@ -9,4 +9,4 @@ Disallow: /api/
 # mid-redirect.
 Disallow: /__/
 
-Sitemap: https://chouettelearning.com/sitemap.xml
+Sitemap: https://www.chouettelearning.com/sitemap.xml
