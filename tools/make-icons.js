@@ -58,9 +58,42 @@ const JOBS = [
   { file: "apple-touch-icon.png", size: 180, scale: 0.84, radius: 0 }
 ];
 
+/* The card a shared link turns into, on a phone message or a staff room Slack.
+ * Same owl, same navy, and the words a person needs to know what they are
+ * about to open. */
+function card() {
+  return `<!doctype html><meta charset="utf-8">
+  <style>
+    html,body{margin:0;width:1200px;height:630px}
+    body{background:${NAVY};display:flex;align-items:center;gap:56px;
+         padding:0 80px;box-sizing:border-box;
+         font-family:"DejaVu Sans",system-ui,sans-serif;color:#fff}
+    .owl{flex:0 0 300px}
+    h1{margin:0 0 18px;font-size:68px;letter-spacing:-1.5px}
+    p{margin:0;font-size:32px;line-height:1.35;color:#b9c2f0}
+    b{color:${GOLD}}
+  </style>
+  <div class="owl">
+    <svg xmlns="http://www.w3.org/2000/svg" width="300" height="300" viewBox="-6 -6 132 132">
+      ${OWL}
+    </svg>
+  </div>
+  <div>
+    <h1>Chouette Learning</h1>
+    <p>Eight free French mini-games,<br><b>French&nbsp;1 through AP&nbsp;French</b>.</p>
+  </div>`;
+}
+
 (async () => {
   fs.mkdirSync(OUT, { recursive: true });
   const browser = await chromium.launch();
+
+  const og = await browser.newPage({ viewport: { width: 1200, height: 630 } });
+  await og.setContent(card());
+  await og.screenshot({ path: path.join(OUT, "og.png") });
+  await og.close();
+  console.log("  og.png  1200×630");
+
   for (const job of JOBS) {
     const p = await browser.newPage({ viewport: { width: job.size, height: job.size } });
     await p.setContent(page(job.size, job.scale, job.radius));

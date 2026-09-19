@@ -4,8 +4,57 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#10143a">
-  <meta name="description" content="Chouette ! — huit mini-jeux pour réviser le français, du niveau French 1 à l'AP French.">
-  <title>Chouette ! — Le français, mais en jeu</title>
+  <!-- The brand string and the words people actually type both have to exist on
+       the page. "Chouette !" alone never matched a search for the site's own
+       name, and the description was French while the students searching for it
+       are American. -->
+  <title>Chouette Learning — French practice games, French 1 to AP French</title>
+  <meta name="description" content="Chouette Learning: eight free French mini-games for vocabulary, gender, conjugation and listening, from French 1 through AP French. Teachers set homework with a class code; it works offline.">
+
+  <!-- One address, so Google does not split its opinion between the bare
+       domain and www. -->
+  <link rel="canonical" href="https://chouettelearning.com/">
+
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Chouette Learning">
+  <meta property="og:title" content="Chouette Learning — French practice games, French 1 to AP French">
+  <meta property="og:description" content="Eight free French mini-games for vocabulary, gender, conjugation and listening. Teachers set homework with a class code; it works offline.">
+  <meta property="og:url" content="https://chouettelearning.com/">
+  <meta property="og:image" content="https://chouettelearning.com/icons/og.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:locale" content="en_US">
+  <meta property="og:locale:alternate" content="fr_FR">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Chouette Learning — French practice games">
+  <meta name="twitter:description" content="Eight free French mini-games, French 1 to AP French. Works offline.">
+  <meta name="twitter:image" content="https://chouettelearning.com/icons/og.png">
+
+  <!-- What the site is, in the form search engines read directly rather than
+       having to infer. isAccessibleForFree is the claim that matters here. -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "Chouette Learning",
+    "alternateName": "Chouette !",
+    "url": "https://chouettelearning.com/",
+    "applicationCategory": "EducationalApplication",
+    "operatingSystem": "Any browser",
+    "inLanguage": ["en", "fr"],
+    "isAccessibleForFree": true,
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+    "description": "Eight free French mini-games covering vocabulary, noun gender, conjugation across ten tenses, spelling and accents, sentence building, listening and pronunciation, for students from French 1 through AP French. Teachers create a class, set homework built from the games, and track a roster.",
+    "educationalLevel": "High school",
+    "teaches": "French as a second language",
+    "featureList": [
+      "Vocabulary, gender, conjugation, accents, listening and pronunciation games",
+      "Teacher class codes, homework and roster",
+      "Printable worksheets, quizzes and flashcards",
+      "Works offline and installs to a home screen"
+    ]
+  }
+  </script>
 
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
@@ -45,13 +94,35 @@
   </script>
 </head>
 <body>
-  <main id="app" role="main"></main>
-
-  <noscript>
-    <p style="padding:24px;text-align:center;font-family:sans-serif;color:#fff">
-      Chouette ! a besoin de JavaScript pour fonctionner. Active-le, puis recharge la page.
-    </p>
-  </noscript>
+  <!-- The app draws itself into here. Until it does, this is what a visitor
+       with a slow connection and what a crawler both see — the page used to be
+       completely empty, which gave Google nothing to rank and a stranger no
+       idea what the site was. App.Router.mount() replaces it on boot. -->
+  <main id="app" role="main">
+    <div class="boot-intro">
+      <h1>Chouette Learning</h1>
+      <p lang="en">
+        Eight free French mini-games — vocabulary, noun gender, conjugation,
+        spelling and accents, sentence building, listening and pronunciation —
+        for students from <strong>French 1 through AP French</strong>.
+      </p>
+      <p lang="en">
+        Teachers create a class, hand out a six-character code, and set homework
+        built from the games. It works offline and installs to a home screen.
+      </p>
+      <p class="boot-wait" lang="en">Loading…</p>
+      <!-- With scripting off, nothing is loading and saying so would be a lie;
+           this swaps the spinner line for the truth. A <style> inside
+           <noscript> is the only way to ask the question in CSS. -->
+      <noscript>
+        <style>.boot-wait { display: none; }</style>
+        <p class="boot-wait boot-noscript" style="display:block">
+          Chouette ! a besoin de JavaScript pour fonctionner. Active-le, puis
+          recharge la page.
+        </p>
+      </noscript>
+    </div>
+  </main>
 
   <!-- foundations -->
   <script src="js/config.js"></script>

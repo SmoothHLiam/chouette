@@ -1,0 +1,12 @@
+# Chouette Learning — everything here is public and safe to crawl.
+User-agent: *
+Allow: /
+
+# The sync API answers only to codes and tokens, and a crawler asking it
+# anything just burns the free tier's daily request budget.
+Disallow: /api/
+# Firebase's sign-in handler. Nothing to index, and it only ever makes sense
+# mid-redirect.
+Disallow: /__/
+
+Sitemap: https://chouettelearning.com/sitemap.xml
